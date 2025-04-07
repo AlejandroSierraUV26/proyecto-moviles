@@ -15,11 +15,12 @@ val userService = UserService()
 
 fun Route.userRoutes() {
     route("/api") {
+
         post("/register") {
             val userRequest = call.receive<UserRegisterRequest>()
             val existingUser = userService.findByEmail(userRequest.email)
 
-            if (existingUser != null) {
+            if (existingUser) {
                 call.respond(
                     HttpStatusCode.Conflict,
                     ApiResponse(success = false, message = "El usuario ya existe")
