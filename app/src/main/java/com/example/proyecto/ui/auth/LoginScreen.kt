@@ -19,7 +19,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
 
-
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
@@ -47,13 +46,13 @@ fun LoginScreen(navController: NavController) {
             label = {
                 Text(
                     text = "Correo o usuario",
-                    fontSize = 16.sp // Puedes probar también 12.sp si lo quieres más pequeño
+                    fontSize = 16.sp
                 )
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp), // opcional para que se vea más redondo
-            shape = RoundedCornerShape(28), // esto sí afecta el borde del campo
+                .height(56.dp),
+            shape = RoundedCornerShape(28),
             singleLine = true
         )
 
@@ -66,13 +65,13 @@ fun LoginScreen(navController: NavController) {
             label = {
                 Text(
                     text = "Contraseña",
-                    fontSize = 16.sp // Puedes probar también 12.sp si lo quieres más pequeño
+                    fontSize = 16.sp
                 )
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp), // opcional para que se vea más redondo
-            shape = RoundedCornerShape(28), // esto sí afecta el borde del campo
+                .height(56.dp),
+            shape = RoundedCornerShape(28),
             singleLine = true
         )
 
@@ -92,7 +91,11 @@ fun LoginScreen(navController: NavController) {
         // Botón de ingresar
         Button(
             onClick = {
-                // Acción de login o navegación
+                // Aquí va la lógica de autenticación
+                navController.navigate(AppScreens.HomeScreen.route) {
+                    // Limpia el historial de navegación
+                    popUpTo(0) { inclusive = true }
+                }
             },
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF052659)
@@ -111,7 +114,6 @@ fun LoginScreen(navController: NavController) {
             text = "¿No tienes cuenta?",
             fontWeight = FontWeight.Medium,
             fontSize = 16.sp 
-
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -136,6 +138,6 @@ fun LoginScreen(navController: NavController) {
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-        val navController = rememberNavController()
-        LoginScreen(navController = navController)
+    val navController = rememberNavController()
+    LoginScreen(navController = navController)
 }

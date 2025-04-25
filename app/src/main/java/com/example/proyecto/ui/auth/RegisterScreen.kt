@@ -92,7 +92,11 @@ fun RegisterScreen(navController: NavController) {
         // Botón de crear cuenta
         Button(
             onClick = {
-                // Acción para crear cuenta
+                // Aquí va la lógica de autenticación
+                navController.navigate(AppScreens.HomeScreen.route) {
+                    // Limpia el historial de navegación
+                    popUpTo(0) { inclusive = true }
+                }
             },
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF052659)
@@ -134,7 +138,7 @@ fun RegisterScreen(navController: NavController) {
 
 @Preview(showBackground = true)
 @Composable
-fun  RegisterScreenPreview() {
+fun RegisterScreenPreview() {
     val navController = rememberNavController()
     RegisterScreen(navController = navController)
 }
