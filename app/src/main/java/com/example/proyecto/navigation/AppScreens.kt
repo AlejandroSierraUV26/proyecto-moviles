@@ -8,4 +8,6 @@ sealed class AppScreens(val route: String){
     object CoursesScreen: AppScreens("courses_screen")
     object ProfileScreen: AppScreens("profile_screen")
     object SettingsScreen: AppScreens("settings_screen")
+    object EditProfileScreen: AppScreens("edit_profile_screen")
+    object DeleteCourseScreen: AppScreens("delete_course_screen")
 }

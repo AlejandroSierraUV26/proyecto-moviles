@@ -12,11 +12,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.proyecto.ui.auth.LoginScreen
 import com.example.proyecto.ui.auth.RegisterScreen
-import com.example.proyecto.ui.courses.CoursesScreen
+import com.example.proyecto.ui.splash.SplashScreen
 import com.example.proyecto.ui.home.HomeScreen
+import com.example.proyecto.ui.courses.CoursesScreen
 import com.example.proyecto.ui.profile.ProfileScreen
 import com.example.proyecto.ui.settings.SettingsScreen
-import com.example.proyecto.ui.splash.SplashScreen
+import com.example.proyecto.ui.settings.EditProfileScreen
+import com.example.proyecto.ui.settings.DeleteCourseScreen
 
 @Composable
 fun AppNavigation() {
@@ -25,6 +27,17 @@ fun AppNavigation() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     Scaffold(
+        topBar = {
+            if (currentRoute in listOf(
+                    AppScreens.HomeScreen.route,
+                    AppScreens.CoursesScreen.route,
+                    AppScreens.ProfileScreen.route,
+                    AppScreens.SettingsScreen.route
+                )
+            ) {
+                TopBar(navController = navController)
+            }
+        },
         bottomBar = {
             if (currentRoute in listOf(
                     AppScreens.HomeScreen.route,
@@ -61,7 +74,13 @@ fun AppNavigation() {
                 ProfileScreen()
             }
             composable(AppScreens.SettingsScreen.route) {
-                SettingsScreen()
+                SettingsScreen(navController)
+            }
+            composable(AppScreens.EditProfileScreen.route) {
+                EditProfileScreen()
+            }
+            composable(AppScreens.DeleteCourseScreen.route) {
+                DeleteCourseScreen()
             }
         }
     }
