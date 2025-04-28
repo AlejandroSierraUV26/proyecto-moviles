@@ -34,5 +34,38 @@ fun Route.userRoutes() {
                 ApiResponse(success = true, message = "Usuario registrado correctamente")
             )
         }
+        get("/profile") {
+            val email = call.request.queryParameters["email"]
+            if (email == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                return@get
+            }
+
+            val user = userService.getUserProfile(email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+            } else {
+                call.respond(user)
+            }
+        }
+
+        put("/profile") {
+            val params = call.receive<Map<String, String>>()
+            val email = params["email"]
+            val username = params["username"]
+            val description = params["description"]
+
+            if (email == null || username == null || description == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Faltan campos"))
+                return@put
+            }
+
+            val updated = userService.updateUserProfile(email, username, description)
+            if (updated) {
+                call.respond(ApiResponse(true, "Perfil actualizado"))
+            } else {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+            }
+        }
     }
 }

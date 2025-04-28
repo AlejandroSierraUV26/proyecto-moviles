@@ -2,12 +2,15 @@ package com.backtor.services
 
 import com.backtor.models.UserLoginRequest
 import com.backtor.models.UserRegisterRequest
+import com.backtor.models.UserProfile
 
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
+
 
 import com.backtor.models.UserTable
 import org.mindrot.jbcrypt.BCrypt
@@ -41,4 +44,32 @@ class UserService {
             UserTable.deleteWhere { UserTable.email eq email }
         }
     }
+    fun getUserProfile(email: String): UserProfile? {
+        return transaction {
+
+            UserTable.select { UserTable.email eq email }
+                .map {
+                    UserProfile(
+                        email = it[UserTable.email],
+                        username = it[UserTable.username],
+                        description = it[UserTable.description],
+                        createdAt = it[UserTable.createdAt].toString(),
+                        updatedAt = it[UserTable.updatedAt].toString()
+                    )
+                }
+                .firstOrNull()
+        }
+    }
+
+    fun updateUserProfile(email: String, username: String, description: String): Boolean {
+        return transaction {
+            val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                it[UserTable.username] = username
+                it[UserTable.description] = description
+                it[UserTable.updatedAt] = LocalDateTime.now()
+            }
+            updatedRows > 0
+        }
+    }
+
 }

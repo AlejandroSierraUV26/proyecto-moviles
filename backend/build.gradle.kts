@@ -22,6 +22,8 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-dao:0.45.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.45.0")
     implementation("org.jetbrains.exposed:exposed-java-time:0.45.0")
+    implementation("org.jetbrains.exposed:exposed-kotlin-datetime:0.45.0")
+
 
     implementation("ch.qos.logback:logback-classic:1.4.11")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")

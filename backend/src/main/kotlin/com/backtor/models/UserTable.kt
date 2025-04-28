@@ -12,5 +12,4 @@ object UserTable : Table("users") {
     val description = text("description")
     val createdAt = datetime("created_at")
     val updatedAt = datetime("updated_at")
-    override val primaryKey = PrimaryKey(id)
 }
