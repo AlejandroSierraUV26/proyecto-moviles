@@ -12,15 +12,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import com.example.proyecto.navigation.AppScreens
+import com.example.proyecto.utils.DoubleBackToExitHandler
 
 @Composable
 fun SettingsScreen(navController: NavController) {
+    val context = LocalContext.current
+    
+    DoubleBackToExitHandler {
+        // Cierra la aplicación
+        android.os.Process.killProcess(android.os.Process.myPid())
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()

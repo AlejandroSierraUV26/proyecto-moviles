@@ -19,6 +19,7 @@ import com.example.proyecto.ui.profile.ProfileScreen
 import com.example.proyecto.ui.settings.SettingsScreen
 import com.example.proyecto.ui.settings.EditProfileScreen
 import com.example.proyecto.ui.settings.DeleteCourseScreen
+import com.example.proyecto.ui.courses.CreateCoursesScreen
 
 @Composable
 fun AppNavigation() {
@@ -68,7 +69,10 @@ fun AppNavigation() {
                 HomeScreen()
             }
             composable(AppScreens.CoursesScreen.route) {
-                CoursesScreen()
+                CoursesScreen(navController)
+            }
+            composable(AppScreens.CreateCourseScreen.route) {
+                CreateCoursesScreen()
             }
             composable(AppScreens.ProfileScreen.route) {
                 ProfileScreen()

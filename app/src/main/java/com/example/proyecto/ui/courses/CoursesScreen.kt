@@ -12,11 +12,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.proyecto.navigation.AppScreens
+import com.example.proyecto.utils.DoubleBackToExitHandler
 
 data class Course(
     val id: String,
@@ -25,7 +30,14 @@ data class Course(
 )
 
 @Composable
-fun CoursesScreen() {
+fun CoursesScreen(navController: NavController) {
+    val context = LocalContext.current
+    
+    DoubleBackToExitHandler {
+        // Cierra la aplicación
+        android.os.Process.killProcess(android.os.Process.myPid())
+    }
+    
     // Estado para el texto de búsqueda
     var searchText by remember { mutableStateOf("") }
     
@@ -85,6 +97,21 @@ fun CoursesScreen() {
                         expandedCourseId = if (expandedCourseId == course.id) null else course.id 
                     }
                 )
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { navController.navigate(AppScreens.CreateCourseScreen.route) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "Generar curso",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -153,5 +180,5 @@ fun CourseCard(
 @Preview(showBackground = true)
 @Composable
 fun CoursesScreenPreview() {
-    CoursesScreen()
+    CoursesScreen(navController = rememberNavController())
 } 
