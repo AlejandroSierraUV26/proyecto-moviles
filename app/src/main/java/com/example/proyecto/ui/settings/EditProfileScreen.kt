@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -89,6 +90,7 @@ fun EditProfileScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(72.dp),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp)
         )
@@ -100,6 +102,7 @@ fun EditProfileScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(72.dp),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp)
         )
@@ -112,6 +115,7 @@ fun EditProfileScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(72.dp),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp),
             visualTransformation = if (showPassword) {
@@ -139,6 +143,7 @@ fun EditProfileScreen() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(72.dp),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp),
             visualTransformation = if (showConfirmPassword) {
