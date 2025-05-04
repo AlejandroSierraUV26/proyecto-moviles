@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.proyecto.navigation.AppScreens
@@ -30,7 +31,8 @@ data class Course(
 )
 
 @Composable
-fun CoursesScreen(navController: NavController) {
+fun CoursesScreen(navController: NavController,
+                  viewModel: CoursesViewModel = viewModel()) {
     val context = LocalContext.current
     
     DoubleBackToExitHandler {
@@ -93,9 +95,10 @@ fun CoursesScreen(navController: NavController) {
                 CourseCard(
                     course = course,
                     isExpanded = expandedCourseId == course.id,
-                    onExpandClick = { 
-                        expandedCourseId = if (expandedCourseId == course.id) null else course.id 
-                    }
+                    onExpandClick = {
+                        expandedCourseId = if (expandedCourseId == course.id) null else course.id
+                    },
+                    viewModel = viewModel
                 )
             }
             
@@ -121,7 +124,8 @@ fun CoursesScreen(navController: NavController) {
 fun CourseCard(
     course: Course,
     isExpanded: Boolean,
-    onExpandClick: () -> Unit
+    onExpandClick: () -> Unit,
+    viewModel: CoursesViewModel
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -166,7 +170,9 @@ fun CourseCard(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Button(
-                        onClick = { /* TODO: Implementar lógica para agregar curso */ },
+                        onClick = {
+                            viewModel.addCourse(course.name)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Agregar")
@@ -176,9 +182,3 @@ fun CourseCard(
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-fun CoursesScreenPreview() {
-    CoursesScreen(navController = rememberNavController())
-} 

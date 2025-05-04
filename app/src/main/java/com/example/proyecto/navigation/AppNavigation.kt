@@ -5,6 +5,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,6 +16,7 @@ import com.example.proyecto.ui.auth.RegisterScreen
 import com.example.proyecto.ui.splash.SplashScreen
 import com.example.proyecto.ui.home.HomeScreen
 import com.example.proyecto.ui.courses.CoursesScreen
+import com.example.proyecto.ui.courses.CoursesViewModel
 import com.example.proyecto.ui.profile.ProfileScreen
 import com.example.proyecto.ui.settings.SettingsScreen
 import com.example.proyecto.ui.settings.EditProfileScreen
@@ -26,6 +28,8 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    val viewModel: CoursesViewModel = viewModel()
 
     Scaffold(
         topBar = {
@@ -66,10 +70,10 @@ fun AppNavigation() {
                 RegisterScreen(navController)
             }
             composable(AppScreens.HomeScreen.route) {
-                HomeScreen()
+                HomeScreen(viewModel = viewModel)
             }
             composable(AppScreens.CoursesScreen.route) {
-                CoursesScreen(navController)
+                CoursesScreen(navController = navController, viewModel = viewModel)
             }
             composable(AppScreens.CreateCourseScreen.route) {
                 CreateCoursesScreen()
