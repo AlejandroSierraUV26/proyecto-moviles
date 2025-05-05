@@ -81,15 +81,41 @@ class UserService {
     }
     fun updateStreak(email: String): Boolean {
         return transaction {
-            val currentStreak = UserTable
+            // Obtener el usuario y su última fecha de actividad
+            val userData = UserTable
                 .select { UserTable.email eq email }
-                .map { it[UserTable.streak] }
+                .map { 
+                    Pair(
+                        it[UserTable.streak], 
+                        it[UserTable.lastActiveDate].toLocalDate()
+                    )
+                }
                 .firstOrNull() ?: return@transaction false
-
+    
+            val (currentStreak, lastActiveDate) = userData
+            val today = LocalDateTime.now().toLocalDate()
+    
+            // Verificar si ya actualizó hoy
+            if (lastActiveDate == today) {
+                return@transaction false
+            }
+    
+            // Verificar si es un día consecutivo (para mantener el streak)
+            val isConsecutiveDay = lastActiveDate.plusDays(1) == today
+            
+            val newStreak = if (isConsecutiveDay) {
+                currentStreak + 1
+            } else {
+                // Si no es consecutivo, reiniciar a 1
+                1
+            }
+    
+            // Actualizar el streak y la última fecha de actividad
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[streak] = currentStreak + 1
+                it[streak] = newStreak
                 it[lastActiveDate] = LocalDateTime.now()
             }
+            
             updatedRows > 0
         }
     }

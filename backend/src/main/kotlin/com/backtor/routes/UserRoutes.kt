@@ -54,19 +54,102 @@ fun Route.userRoutes() {
                 call.respond(user)
             }
         }
-        put("/strake"){
+
+        put("/update-username") {
+            val email = call.request.queryParameters["email"]
+            val newUsername = call.request.queryParameters["username"]
+            
+            if (email == null || newUsername == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest, 
+                    ApiResponse(false, "Email y nuevo nombre de usuario son requeridos")
+                )
+                return@put
+            }
+            
+            val success = userService.updateUserProfile(email, newUsername)
+            if (success) {
+                call.respond(
+                    HttpStatusCode.OK, 
+                    ApiResponse(true, "Nombre de usuario actualizado correctamente")
+                )
+            } else {
+                call.respond(
+                    HttpStatusCode.NotFound, 
+                    ApiResponse(false, "Usuario no encontrado")
+                )
+            }
+        }
+
+        put("/update-password") {
+            val request = try {
+                call.receive<Map<String, String>>()
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.BadRequest, 
+                    ApiResponse(false, "Datos inválidos")
+                )
+                return@put
+            }
+            
+            val email = request["email"]
+            val newPassword = request["newPassword"]
+            
+            if (email == null || newPassword == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest, 
+                    ApiResponse(false, "Email y nueva contraseña son requeridos")
+                )
+                return@put
+            }
+            
+            val success = userService.updateUserPassword(email, newPassword)
+            if (success) {
+                call.respond(
+                    HttpStatusCode.OK, 
+                    ApiResponse(true, "Contraseña actualizada correctamente")
+                )
+            } else {
+                call.respond(
+                    HttpStatusCode.NotFound, 
+                    ApiResponse(false, "Usuario no encontrado")
+                )
+            }
+        }
+
+        delete("/delete") {
             val email = call.request.queryParameters["email"]
             if (email == null) {
                 call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
-                return@put
+                return@delete
             }
 
             val user = userService.getUserProfile(email)
             if (user == null) {
                 call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
             } else {
-                userService.updateStreak(email)
-                call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak actualizado"))
+                userService.deleteUser(email)
+                call.respond(HttpStatusCode.OK, ApiResponse(true, "Usuario eliminado"))
+            }
+        }
+
+        put("/streak") {
+            val email = call.request.queryParameters["email"]
+            if (email == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                return@put
+            }
+        
+            val user = userService.getUserProfile(email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+            } else {
+                val success = userService.updateStreak(email)
+                if (success) {
+                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak actualizado"))
+                } else {
+                    call.respond(HttpStatusCode.Forbidden, ApiResponse(false, "Ya has actualizado tu streak hoy"))
+                }
             }
         }
         put("/reset_streak"){
