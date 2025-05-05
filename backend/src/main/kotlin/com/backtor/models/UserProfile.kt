@@ -10,6 +10,6 @@ data class UserProfile(
     val email: String,
     val username: String,
     val streak: Int,
-    @Contextual val createdAt: LocalDateTime,
-    @Contextual val lastActivity: LocalDateTime
+    @Serializable(with = LocalDateTimeSerializer::class) val lastActivity: LocalDateTime,
+    @Serializable(with = LocalDateTimeSerializer::class) val createdAt: LocalDateTime
 )
