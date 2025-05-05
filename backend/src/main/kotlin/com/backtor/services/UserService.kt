@@ -102,4 +102,15 @@ class UserService {
             updatedRows > 0
         }
     }
+
+    fun updateUserPassword(email: String, newPassword: String): Boolean {
+        val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+        return transaction {
+            val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                it[passwordHash] = hashedPassword
+            }
+            updatedRows > 0
+        }
+    }
+
 }
