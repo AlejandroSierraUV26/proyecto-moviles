@@ -55,7 +55,6 @@ class UserService {
             UserTable.deleteWhere { UserTable.email eq email }
         }
     }
-
     fun getUserProfile(email: String): UserProfile? {
         return transaction {
             UserTable.select { UserTable.email eq email }
@@ -70,12 +69,21 @@ class UserService {
                 }.firstOrNull()
         }
     }
-
-    fun updateUserProfile(email: String, username: String): Boolean {
+    fun updateUserProfile(email: String, newUsername: String): Boolean {
         return transaction {
-            val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[UserTable.username] = username
+            // Verificar si ya existe un usuario con ese nombre de usuario (excepto el mismo usuario)
+            val usernameExists = UserTable.select {
+                (UserTable.username eq newUsername) and (UserTable.email neq email)
+            }.count() > 0
+    
+            if (usernameExists) {
+                return@transaction false
             }
+    
+            val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                it[username] = newUsername
+            }
+    
             updatedRows > 0
         }
     }
@@ -112,8 +120,8 @@ class UserService {
     
             // Actualizar el streak y la última fecha de actividad
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[streak] = newStreak
-                it[lastActiveDate] = LocalDateTime.now()
+                it[UserTable.streak] = newStreak
+                it[UserTable.lastActiveDate] = LocalDateTime.now()
             }
             
             updatedRows > 0
@@ -128,8 +136,12 @@ class UserService {
             updatedRows > 0
         }
     }
-
-    fun updateUserPassword(email: String, newPassword: String): Boolean {
+    fun updateUserPassword(email: String, currentPassword: String, newPassword: String): Boolean {
+        val user = findByEmail(email)
+        if (user == null || !BCrypt.checkpw(currentPassword, user.passwordHash)) {
+            return false
+        }
+    
         val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
         return transaction {
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
@@ -138,5 +150,4 @@ class UserService {
             updatedRows > 0
         }
     }
-
 }
