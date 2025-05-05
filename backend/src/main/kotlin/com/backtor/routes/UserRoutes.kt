@@ -54,46 +54,69 @@ fun Route.userRoutes() {
                 call.respond(user)
             }
         }
+
         put("/update-username") {
             val email = call.request.queryParameters["email"]
             val newUsername = call.request.queryParameters["username"]
-        
+            
             if (email == null || newUsername == null) {
-                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email y nuevo nombre de usuario son requeridos"))
+                call.respond(
+                    HttpStatusCode.BadRequest, 
+                    ApiResponse(false, "Email y nuevo nombre de usuario son requeridos")
+                )
                 return@put
             }
-        
+            
             val success = userService.updateUserProfile(email, newUsername)
             if (success) {
-                call.respond(HttpStatusCode.OK, ApiResponse(true, "Nombre de usuario actualizado correctamente"))
+                call.respond(
+                    HttpStatusCode.OK, 
+                    ApiResponse(true, "Nombre de usuario actualizado correctamente")
+                )
             } else {
-                call.respond(HttpStatusCode.Conflict, ApiResponse(false, "El nombre de usuario ya está en uso"))
+                call.respond(
+                    HttpStatusCode.NotFound, 
+                    ApiResponse(false, "Usuario no encontrado")
+                )
             }
-        }        
+        }
+
         put("/update-password") {
             val request = try {
                 call.receive<Map<String, String>>()
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Datos inválidos"))
+                call.respond(
+                    HttpStatusCode.BadRequest, 
+                    ApiResponse(false, "Datos inválidos")
+                )
                 return@put
             }
-        
+            
             val email = request["email"]
-            val currentPassword = request["currentPassword"]
             val newPassword = request["newPassword"]
-        
-            if (email.isNullOrBlank() || currentPassword.isNullOrBlank() || newPassword.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email, contraseña actual y nueva contraseña son requeridos"))
+            
+            if (email == null || newPassword == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest, 
+                    ApiResponse(false, "Email y nueva contraseña son requeridos")
+                )
                 return@put
             }
-        
-            val success = userService.updateUserPassword(email, currentPassword, newPassword)
+            
+            val success = userService.updateUserPassword(email, newPassword)
             if (success) {
-                call.respond(HttpStatusCode.OK, ApiResponse(true, "Contraseña actualizada correctamente"))
+                call.respond(
+                    HttpStatusCode.OK, 
+                    ApiResponse(true, "Contraseña actualizada correctamente")
+                )
             } else {
-                call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "Contraseña actual incorrecta o usuario no encontrado"))
+                call.respond(
+                    HttpStatusCode.NotFound, 
+                    ApiResponse(false, "Usuario no encontrado")
+                )
             }
         }
+
         delete("/delete") {
             val email = call.request.queryParameters["email"]
             if (email == null) {
@@ -129,7 +152,6 @@ fun Route.userRoutes() {
                 }
             }
         }
-
         put("/reset_streak"){
             val email = call.request.queryParameters["email"]
             if (email == null) {
