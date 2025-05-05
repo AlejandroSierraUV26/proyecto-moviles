@@ -1,7 +1,12 @@
 plugins {
+    kotlin("jvm") version "1.9.22"  // La versión de Kotlin puede variar
     kotlin("plugin.serialization") version "1.9.0"
-    kotlin("jvm") version "1.9.22"
-    application
+    application  // Asegúrate de tener este plugin para que la tarea 'run' esté disponible
+}
+
+application {
+    // La clase principal de tu aplicación
+    mainClass.set("com.backtor.ApplicationKt")
 }
 
 repositories {
@@ -9,7 +14,6 @@ repositories {
     maven("https://repo.jetbrains.space/public/p/ktor/eap")
     maven("https://repo.jetbrains.space/public/p/exposed/maven")
 }
-
 
 dependencies {
     implementation("io.ktor:ktor-server-core:2.3.7")
@@ -27,22 +31,16 @@ dependencies {
 
     implementation("ch.qos.logback:logback-classic:1.4.11")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-    implementation("org.postgresql:postgresql:42.7.2") // Driver de PostgreSQL
-    implementation("com.zaxxer:HikariCP:5.0.1")         // Pool de conexiones
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.5.0")  // Asegúrate de tener la última versión compatible.
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+    implementation("org.postgresql:postgresql:42.7.2")
+    implementation("com.zaxxer:HikariCP:5.0.1")
 
     testImplementation("io.ktor:ktor-server-tests:2.3.7")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
 
     // Hashing
     implementation("org.mindrot:jbcrypt:0.4")
-
-    // Joda Time
     implementation("joda-time:joda-time:2.12.5")
-
-
 }
 
-
-application {
-    mainClass.set("com.backtor.ApplicationKt")
-}

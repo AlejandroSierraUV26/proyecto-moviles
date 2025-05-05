@@ -11,13 +11,13 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
 
-
 import com.backtor.models.UserTable
 import org.mindrot.jbcrypt.BCrypt
 
 import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
-
 
 class UserService {
     fun saveUser(user: UserRegisterRequest) {
@@ -27,49 +27,56 @@ class UserService {
                 it[email] = user.email
                 it[passwordHash] = hashedPassword
                 it[username] = user.username
-                it[description] = user.description
+                it[streak] = 0
+                it[lastActiveDate] = LocalDateTime.now() // o LocalDate.now() si usas tipo DATE
                 it[createdAt] = LocalDateTime.now()
-                it[updatedAt] = LocalDateTime.now()
             }
         }
     }
-    fun findByEmail(email: String): Boolean {
-        return transaction {
-            UserTable.select { UserTable.email eq email }
-                .count() > 0
-        }
-    }
-    fun deleteUser(email: String) {
-        transaction {
-            UserTable.deleteWhere { UserTable.email eq email }
-        }
-    }
-    fun getUserProfile(email: String): UserProfile? {
-        return transaction {
 
+
+    fun findByEmail(email: String): UserProfile? {
+        return transaction {
             UserTable.select { UserTable.email eq email }
                 .map {
                     UserProfile(
                         email = it[UserTable.email],
                         username = it[UserTable.username],
-                        description = it[UserTable.description],
-                        createdAt = it[UserTable.createdAt].toString(),
-                        updatedAt = it[UserTable.updatedAt].toString()
+                        streak = it[UserTable.streak],
+                        lastActivity = it[UserTable.lastActiveDate],
+                        createdAt = it[UserTable.createdAt]
                     )
-                }
-                .firstOrNull()
+                }.firstOrNull()
         }
     }
 
-    fun updateUserProfile(email: String, username: String, description: String): Boolean {
+    fun deleteUser(email: String) {
+        transaction {
+            UserTable.deleteWhere { UserTable.email eq email }
+        }
+    }
+
+    fun getUserProfile(email: String): UserProfile? {
+        return transaction {
+            UserTable.select { UserTable.email eq email }
+                .map {
+                    UserProfile(
+                        email = it[UserTable.email],
+                        username = it[UserTable.username],
+                        streak = it[UserTable.streak],
+                        lastActivity = it[UserTable.lastActiveDate],
+                        createdAt = it[UserTable.createdAt]
+                    )
+                }.firstOrNull()
+        }
+    }
+
+    fun updateUserProfile(email: String, username: String): Boolean {
         return transaction {
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
                 it[UserTable.username] = username
-                it[UserTable.description] = description
-                it[UserTable.updatedAt] = LocalDateTime.now()
             }
             updatedRows > 0
         }
     }
-
 }

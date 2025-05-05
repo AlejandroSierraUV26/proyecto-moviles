@@ -15,12 +15,10 @@ val userService = UserService()
 
 fun Route.userRoutes() {
     route("/api") {
-
         post("/register") {
             val userRequest = call.receive<UserRegisterRequest>()
-            val existingUser = userService.findByEmail(userRequest.email)
 
-            if (existingUser) {
+            if (userService.findByEmail(userRequest.email) != null) {
                 call.respond(
                     HttpStatusCode.Conflict,
                     ApiResponse(success = false, message = "El usuario ya existe")
@@ -28,12 +26,20 @@ fun Route.userRoutes() {
                 return@post
             }
 
-            userService.saveUser(userRequest)
-            call.respond(
-                HttpStatusCode.Created,
-                ApiResponse(success = true, message = "Usuario registrado correctamente")
-            )
+            try {
+                userService.saveUser(userRequest)
+                call.respond(
+                    HttpStatusCode.Created,
+                    ApiResponse(success = true, message = "Usuario registrado correctamente")
+                )
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ApiResponse(success = false, message = "Error al registrar usuario")
+                )
+            }
         }
+
         get("/profile") {
             val email = call.request.queryParameters["email"]
             if (email == null) {
@@ -46,25 +52,6 @@ fun Route.userRoutes() {
                 call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
             } else {
                 call.respond(user)
-            }
-        }
-
-        put("/profile") {
-            val params = call.receive<Map<String, String>>()
-            val email = params["email"]
-            val username = params["username"]
-            val description = params["description"]
-
-            if (email == null || username == null || description == null) {
-                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Faltan campos"))
-                return@put
-            }
-
-            val updated = userService.updateUserProfile(email, username, description)
-            if (updated) {
-                call.respond(ApiResponse(true, "Perfil actualizado"))
-            } else {
-                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
             }
         }
     }
