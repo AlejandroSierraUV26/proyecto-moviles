@@ -54,5 +54,35 @@ fun Route.userRoutes() {
                 call.respond(user)
             }
         }
+        put("/strake"){
+            val email = call.request.queryParameters["email"]
+            if (email == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                return@put
+            }
+
+            val user = userService.getUserProfile(email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+            } else {
+                userService.updateStreak(email)
+                call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak actualizado"))
+            }
+        }
+        put("/reset_streak"){
+            val email = call.request.queryParameters["email"]
+            if (email == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                return@put
+            }
+
+            val user = userService.getUserProfile(email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+            } else {
+                userService.resetStreak(email)
+                call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak reseteado"))
+            }
+        }
     }
 }
