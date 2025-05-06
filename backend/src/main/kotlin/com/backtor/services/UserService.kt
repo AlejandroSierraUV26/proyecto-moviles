@@ -112,8 +112,8 @@ class UserService {
     
             // Actualizar el streak y la última fecha de actividad
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[streak] = newStreak
-                it[lastActiveDate] = LocalDateTime.now()
+                it[UserTable.streak] = newStreak
+                it[UserTable.lastActiveDate] = LocalDateTime.now()
             }
             
             updatedRows > 0
@@ -122,8 +122,8 @@ class UserService {
     fun resetStreak(email: String): Boolean {
         return transaction {
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[streak] = 0
-                it[lastActiveDate] = LocalDateTime.now()
+                it[UserTable.streak] = 0
+                it[UserTable.lastActiveDate] = LocalDateTime.now()
             }
             updatedRows > 0
         }
@@ -138,5 +138,14 @@ class UserService {
             updatedRows > 0
         }
     }
+    fun getPasswordHashByEmail(email: String): String? {
+        return transaction {
+            UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.passwordHash] }
+                .firstOrNull()
+        }
+    }
+
 
 }

@@ -1,6 +1,7 @@
 package com.backtor.routes
 
 import com.backtor.models.UserRegisterRequest
+import com.backtor.models.UserLoginRequest
 import com.backtor.models.ApiResponse
 import com.backtor.services.UserService
 
@@ -9,6 +10,8 @@ import io.ktor.server.response.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+
+import org.mindrot.jbcrypt.BCrypt
 
 // Crea instancia del servicio
 val userService = UserService()
@@ -38,6 +41,32 @@ fun Route.userRoutes() {
                     ApiResponse(success = false, message = "Error al registrar usuario")
                 )
             }
+        }
+        post("/login") {
+            val loginRequest = call.receive<UserLoginRequest>()
+
+            val user = userService.findByEmail(loginRequest.email)
+            if (user == null) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(success = false, message = "Credenciales inválidas")
+                )
+                return@post
+            }
+
+            val userPasswordHash = userService.getPasswordHashByEmail(loginRequest.email)
+            if (userPasswordHash == null || !BCrypt.checkpw(loginRequest.password, userPasswordHash)) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(success = false, message = "Credenciales inválidas")
+                )
+                return@post
+            }
+
+            call.respond(
+                HttpStatusCode.OK,
+                ApiResponse(success = true, message = "Login exitoso")
+            )
         }
 
         get("/profile") {
