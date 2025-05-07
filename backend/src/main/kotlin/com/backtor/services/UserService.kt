@@ -10,14 +10,20 @@ import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.and
 
 import com.backtor.models.UserTable
+import com.backtor.models.PasswordResetTable
 import org.mindrot.jbcrypt.BCrypt
 
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
+import jakarta.mail.*
+import jakarta.mail.internet.*
+import java.util.*
 
 class UserService {
     fun saveUser(user: UserRegisterRequest) {
@@ -145,6 +151,83 @@ class UserService {
                 .map { it[UserTable.passwordHash] }
                 .firstOrNull()
         }
+    }
+    fun savePasswordResetToken(email: String, token: Int) {
+        // Convertir el token a String y generar su hash
+        val hashedToken = BCrypt.hashpw(token.toString(), BCrypt.gensalt())
+        println("Token: $token")
+        println("Hashed Token: $hashedToken")
+
+        // Insertar en la base de datos
+        transaction {
+            PasswordResetTable.insert {
+                it[PasswordResetTable.email] = email  // Guarda el correo electrónico
+                it[PasswordResetTable.token] = hashedToken  // Guarda el hash del token
+                it[PasswordResetTable.expiration] = LocalDateTime.now().plusHours(1)  // Fecha de expiración
+            }
+        }
+    }
+
+
+
+    fun validatePasswordResetToken(email: String, rawToken: Int): Boolean {
+        return transaction {
+            val tokenData = PasswordResetTable
+                .select { PasswordResetTable.email eq email }
+                .map { row -> row[PasswordResetTable.token] to row[PasswordResetTable.expiration] }
+                .firstOrNull() ?: return@transaction false
+
+            val (hashedToken, expiration) = tokenData
+
+            // Validar que el hash no sea nulo o inválido
+            if (hashedToken.isNullOrBlank()) {
+                return@transaction false
+            }
+
+            val isTokenValid = try {
+                BCrypt.checkpw(rawToken.toString(), hashedToken)
+            } catch (e: IllegalArgumentException) {
+                false // Hash inválido
+            }
+
+            val isNotExpired = expiration.isAfter(LocalDateTime.now())
+
+            isTokenValid && isNotExpired
+        }
+    }
+
+
+
+
+    fun sendEmail(email: String, subject: String, body: String) {
+        val props = Properties().apply {
+            put("mail.smtp.auth", "true")
+            put("mail.smtp.starttls.enable", "true")
+            put("mail.smtp.host", "smtp.gmail.com") // Cambia esto por tu servidor SMTP
+            put("mail.smtp.port", "587")
+        }
+
+        val session = Session.getInstance(props, object : Authenticator() {
+            override fun getPasswordAuthentication(): PasswordAuthentication {
+                return PasswordAuthentication(
+                    "sierra.alejandro@correounivalle.edu.co",
+                    "xzuyvzmghslcookc"
+                ) // Cambia esto por tu contraseña
+            }
+        })
+    try {
+        val message = MimeMessage(session).apply {
+            setFrom(InternetAddress("sierra.alejandro@correounivalle.edu.co"))
+            setRecipients(Message.RecipientType.TO, InternetAddress.parse(email))
+            setSubject(subject)
+            setText(body)
+        }
+
+        Transport.send(message)
+        println("Correo enviado a $email")
+    } catch (e: MessagingException) {
+        e.printStackTrace()
+    }
     }
 
 
