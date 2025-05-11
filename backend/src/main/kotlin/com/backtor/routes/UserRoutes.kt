@@ -5,11 +5,21 @@ import com.backtor.models.UserLoginRequest
 import com.backtor.models.ApiResponse
 import com.backtor.services.UserService
 
+
+
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+
+import io.ktor.server.application.*
+import kotlinx.coroutines.launch
+
+
+
+
+import java.util.UUID
 
 import org.mindrot.jbcrypt.BCrypt
 
@@ -194,6 +204,55 @@ fun Route.userRoutes() {
             } else {
                 userService.resetStreak(email)
                 call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak reseteado"))
+            }
+        }
+        post("/forgot-password") {
+            val email = call.receive<Map<String, String>>()["email"]
+
+            if (email.isNullOrEmpty()) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                return@post
+            }
+
+            val user = userService.findByEmail(email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+                return@post
+            }
+
+            val token = (1000..9999).random()
+            userService.savePasswordResetToken(email, token)
+
+            // Lanza el envío de correo en segundo plano (no bloquea la conexión)
+            call.application.launch {
+                userService.sendEmail(email, "Recupera tu contraseña", "Tu token es: $token")
+            }
+
+            call.respond(HttpStatusCode.OK, ApiResponse(true, "Se ha enviado un correo con las instrucciones"))
+        }
+
+        post("/reset-password") {
+            val request = call.receive<Map<String, String>>()
+            val email = request["email"]
+            val token = request["token"]
+            val newPassword = request["newPassword"]
+
+            if (email.isNullOrEmpty() || token.isNullOrEmpty() || newPassword.isNullOrEmpty()) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Todos los campos son requeridos"))
+                return@post
+            }
+
+            val isValidToken = userService.validatePasswordResetToken(email, token.toInt())
+            if (!isValidToken) {
+                call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "Token inválido o expirado"))
+                return@post
+            }
+
+            val success = userService.updateUserPassword(email, newPassword)
+            if (success) {
+                call.respond(HttpStatusCode.OK, ApiResponse(true, "Contraseña restablecida correctamente"))
+            } else {
+                call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al restablecer la contraseña"))
             }
         }
     }
