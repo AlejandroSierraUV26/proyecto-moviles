@@ -13,6 +13,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import kotlinx.serialization.Serializable
 import com.backtor.routes.userRoutes
 import com.backtor.database.DatabaseFactory
+import com.backtor.routes.examRoutes
 
 fun main() {
     DatabaseFactory.init()
@@ -22,6 +23,7 @@ fun main() {
         }
         routing {
             userRoutes() // 👈 Asegúrate de tener esto
+            examRoutes() // 👈 Asegúrate de tener esto
         }
     }.start(wait = true)
 }
