@@ -203,7 +203,7 @@ class UserService {
         val props = Properties().apply {
             put("mail.smtp.auth", "true")
             put("mail.smtp.starttls.enable", "true")
-            put("mail.smtp.host", "smtp.gmail.com") // Cambia esto por tu servidor SMTP
+            put("mail.smtp.host", "smtp.gmail.com")
             put("mail.smtp.port", "587")
         }
 
@@ -216,11 +216,31 @@ class UserService {
             }
         })
     try {
+        val bodyHtml = """
+            <html>
+                <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px;">
+                    <div style="max-width: 600px; margin: auto; background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                        <h2 style="color: #4CAF50; text-align: center;">Recuperación de Contraseña</h2>
+                        <p>Hola,</p>
+                        <p>Hemos recibido una solicitud para restablecer tu contraseña. Aquí tienes tu código:</p>
+                        <div style="background: #f0f0f0; padding: 15px; margin: 20px 0; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 1px;">
+                            $body
+                        </div>
+                        <p>Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña actual seguirá siendo válida.</p>
+                        <p style="margin-top: 30px;">Gracias,<br><strong>El equipo de soporte</strong></p>
+                        <hr style="margin: 40px 0;">
+                        <p style="font-size: 12px; color: #999; text-align: center;">
+                            Este correo fue generado automáticamente. Por favor, no respondas a este mensaje.
+                        </p>
+                    </div>
+                </body>
+            </html>
+        """.trimIndent()
         val message = MimeMessage(session).apply {
             setFrom(InternetAddress("sierra.alejandro@correounivalle.edu.co"))
             setRecipients(Message.RecipientType.TO, InternetAddress.parse(email))
             setSubject(subject)
-            setText(body)
+            setContent(bodyHtml, "text/html; charset=utf-8")
         }
 
         Transport.send(message)
@@ -229,6 +249,5 @@ class UserService {
         e.printStackTrace()
     }
     }
-
 
 }
