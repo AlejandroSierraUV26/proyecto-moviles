@@ -39,8 +39,6 @@ class UserService {
             }
         }
     }
-
-
     fun findByEmail(email: String): UserProfile? {
         return transaction {
             UserTable.select { UserTable.email eq email }
@@ -55,13 +53,11 @@ class UserService {
                 }.firstOrNull()
         }
     }
-
     fun deleteUser(email: String) {
         transaction {
             UserTable.deleteWhere { UserTable.email eq email }
         }
     }
-
     fun getUserProfile(email: String): UserProfile? {
         return transaction {
             UserTable.select { UserTable.email eq email }
@@ -74,15 +70,6 @@ class UserService {
                         createdAt = it[UserTable.createdAt]
                     )
                 }.firstOrNull()
-        }
-    }
-
-    fun updateUserProfile(email: String, username: String): Boolean {
-        return transaction {
-            val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[UserTable.username] = username
-            }
-            updatedRows > 0
         }
     }
     fun updateStreak(email: String): Boolean {
@@ -134,14 +121,31 @@ class UserService {
             updatedRows > 0
         }
     }
-
-    fun updateUserPassword(email: String, newPassword: String): Boolean {
-        val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+    fun updateUserPassword(email: String, newPassword: String, password: String): Boolean {
         return transaction {
-            val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                it[passwordHash] = hashedPassword
+            // Validar entrada
+            if (email.isBlank() || newPassword.isBlank() || password.isBlank()) {
+                return@transaction false
             }
-            updatedRows > 0
+
+            // Verificar si la contraseña actual es correcta
+            val hashedPasswordFromDB = UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.passwordHash] }
+                .firstOrNull()
+
+            if (hashedPasswordFromDB != null && BCrypt.checkpw(password, hashedPasswordFromDB)) {
+                // Generar hash de la nueva contraseña
+                val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+
+                // Actualizar la contraseña
+                val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                    it[UserTable.passwordHash] = hashedPassword
+                }
+                updatedRows > 0
+            } else {
+                false // Contraseña incorrecta
+            }
         }
     }
     fun getPasswordHashByEmail(email: String): String? {
@@ -167,9 +171,6 @@ class UserService {
             }
         }
     }
-
-
-
     fun validatePasswordResetToken(email: String, rawToken: Int): Boolean {
         return transaction {
             val tokenData = PasswordResetTable
@@ -195,10 +196,6 @@ class UserService {
             isTokenValid && isNotExpired
         }
     }
-
-
-
-
     fun sendEmail(email: String, subject: String, body: String) {
         val props = Properties().apply {
             put("mail.smtp.auth", "true")
@@ -248,6 +245,37 @@ class UserService {
     } catch (e: MessagingException) {
         e.printStackTrace()
     }
+    }
+    fun updateUserUsername(email: String, newUsername: String, password: String, confirmPassword: String): Boolean {
+        return transaction {
+            // Verificar si la contraseña es correcta
+            val hashedPassword = UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.passwordHash] }
+                .firstOrNull()
+
+            if (hashedPassword != null && BCrypt.checkpw(password, hashedPassword)) {
+                if (password != confirmPassword) {
+                    return@transaction false // Las contraseñas no coinciden
+                }
+                // Actualizar el nombre de usuario
+                val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                    it[UserTable.username] = newUsername
+                }
+                updatedRows > 0
+            } else {
+                false // Contraseña incorrecta
+            }
+        }
+    }
+    fun updateUserPasswordToken(email: String, newPassword: String): Boolean {
+        val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+        return transaction {
+            val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                it[UserTable.passwordHash] = hashedPassword
+            }
+            updatedRows > 0
+        }
     }
 
 }

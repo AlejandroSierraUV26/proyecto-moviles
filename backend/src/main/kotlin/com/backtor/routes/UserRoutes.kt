@@ -78,7 +78,6 @@ fun Route.userRoutes() {
                 ApiResponse(success = true, message = "Login exitoso")
             )
         }
-
         get("/profile") {
             val email = call.request.queryParameters["email"]
             if (email == null) {
@@ -93,33 +92,60 @@ fun Route.userRoutes() {
                 call.respond(user)
             }
         }
-
-        put("/update-username") {
-            val email = call.request.queryParameters["email"]
-            val newUsername = call.request.queryParameters["username"]
-            
-            if (email == null || newUsername == null) {
+        put("/update-profile") {
+            val request = try {
+                call.receive<Map<String, String>>()
+            } catch (e: Exception) {
                 call.respond(
-                    HttpStatusCode.BadRequest, 
-                    ApiResponse(false, "Email y nuevo nombre de usuario son requeridos")
+                    HttpStatusCode.BadRequest,
+                    ApiResponse(false, "Datos inválidos")
                 )
                 return@put
             }
-            
-            val success = userService.updateUserProfile(email, newUsername)
+            val email = request["email"]
+            val newUsername = request["username"]
+            val password = request["password"]
+            val confirmPassword = request["confirmPassword"]
+            if (email == null || newUsername == null || password == null || confirmPassword == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ApiResponse(false, "Email, nuevo nombre de usuario, contraseña y confirmación son requeridos")
+                )
+                return@put
+            }
+            val user = userService.getUserProfile(email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+                return@put
+            }
+            val userPasswordHash = userService.getPasswordHashByEmail(email)
+            if (userPasswordHash == null || !BCrypt.checkpw(password, userPasswordHash)) {
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(false, "Contraseña incorrecta")
+                )
+                return@put
+            }
+            if (password != confirmPassword) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    ApiResponse(false, "Las contraseñas no coinciden")
+                )
+                return@put
+            }
+            val success = userService.updateUserUsername(email, newUsername, password, confirmPassword)
             if (success) {
                 call.respond(
-                    HttpStatusCode.OK, 
+                    HttpStatusCode.OK,
                     ApiResponse(true, "Nombre de usuario actualizado correctamente")
                 )
             } else {
                 call.respond(
-                    HttpStatusCode.NotFound, 
-                    ApiResponse(false, "Usuario no encontrado")
+                    HttpStatusCode.InternalServerError,
+                    ApiResponse(false, "Error al actualizar el nombre de usuario")
                 )
             }
-        }
-
+            }
         put("/update-password") {
             val request = try {
                 call.receive<Map<String, String>>()
@@ -132,17 +158,18 @@ fun Route.userRoutes() {
             }
             
             val email = request["email"]
+            val password = request["password"]
             val newPassword = request["newPassword"]
             
-            if (email == null || newPassword == null) {
+            if (email == null || newPassword == null || password == null) {
                 call.respond(
                     HttpStatusCode.BadRequest, 
-                    ApiResponse(false, "Email y nueva contraseña son requeridos")
+                    ApiResponse(false, "Email, contraseña y nueva contraseña son requeridos")
                 )
                 return@put
             }
             
-            val success = userService.updateUserPassword(email, newPassword)
+            val success = userService.updateUserPassword(email, newPassword, password)
             if (success) {
                 call.respond(
                     HttpStatusCode.OK, 
@@ -155,11 +182,12 @@ fun Route.userRoutes() {
                 )
             }
         }
-
         delete("/delete") {
             val email = call.request.queryParameters["email"]
-            if (email == null) {
-                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+            val password = call.request.queryParameters["password"]
+
+            if (email == null || password == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "email y contraseña son requeridos"))
                 return@delete
             }
 
@@ -167,11 +195,15 @@ fun Route.userRoutes() {
             if (user == null) {
                 call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
             } else {
+                val userPasswordHash = userService.getPasswordHashByEmail(email)
+                if (userPasswordHash == null || !BCrypt.checkpw(password, userPasswordHash)) {
+                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "Contraseña incorrecta"))
+                    return@delete
+                }
                 userService.deleteUser(email)
                 call.respond(HttpStatusCode.OK, ApiResponse(true, "Usuario eliminado"))
             }
         }
-
         put("/streak") {
             val email = call.request.queryParameters["email"]
             if (email == null) {
@@ -230,7 +262,6 @@ fun Route.userRoutes() {
 
             call.respond(HttpStatusCode.OK, ApiResponse(true, "Se ha enviado un correo con las instrucciones"))
         }
-
         post("/reset-password") {
             val request = call.receive<Map<String, String>>()
             val email = request["email"]
@@ -248,7 +279,7 @@ fun Route.userRoutes() {
                 return@post
             }
 
-            val success = userService.updateUserPassword(email, newPassword)
+            val success = userService.updateUserPasswordToken(email, newPassword)
             if (success) {
                 call.respond(HttpStatusCode.OK, ApiResponse(true, "Contraseña restablecida correctamente"))
             } else {
