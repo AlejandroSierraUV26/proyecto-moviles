@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,9 +52,10 @@ fun LoginScreen(navController: NavController) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(72.dp),
             shape = RoundedCornerShape(28),
-            singleLine = true
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 18.sp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -70,9 +72,10 @@ fun LoginScreen(navController: NavController) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(72.dp),
             shape = RoundedCornerShape(28),
-            singleLine = true
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 18.sp)
         )
 
         Spacer(modifier = Modifier.height(8.dp))

@@ -1,6 +1,5 @@
 package com.backtor
 
-
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.application.*
@@ -17,13 +16,13 @@ import com.backtor.routes.examRoutes
 
 fun main() {
     DatabaseFactory.init()
-    embeddedServer(Netty, port = 8080) {
+    embeddedServer(Netty, host = "0.0.0.0", port = 8080) {
         install(ContentNegotiation) {
             json()
         }
         routing {
-            userRoutes() // 👈 Asegúrate de tener esto
-            examRoutes() // 👈 Asegúrate de tener esto
+            userRoutes()
+            examRoutes()
         }
     }.start(wait = true)
 }

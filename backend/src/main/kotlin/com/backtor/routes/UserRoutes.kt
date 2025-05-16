@@ -5,8 +5,6 @@ import com.backtor.models.UserLoginRequest
 import com.backtor.models.ApiResponse
 import com.backtor.services.UserService
 
-
-
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.request.*
@@ -16,11 +14,7 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import kotlinx.coroutines.launch
 
-
-
-
 import java.util.UUID
-
 import org.mindrot.jbcrypt.BCrypt
 
 // Crea instancia del servicio
@@ -34,7 +28,7 @@ fun Route.userRoutes() {
             if (userService.findByEmail(userRequest.email) != null) {
                 call.respond(
                     HttpStatusCode.Conflict,
-                    ApiResponse(success = false, message = "El usuario ya existe")
+                    ApiResponse(success = false, message = "El correo electrónico ya está registrado")
                 )
                 return@post
             }
@@ -46,10 +40,17 @@ fun Route.userRoutes() {
                     ApiResponse(success = true, message = "Usuario registrado correctamente")
                 )
             } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    ApiResponse(success = false, message = "Error al registrar usuario")
-                )
+                if (e.message?.contains("users_username_key") == true) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ApiResponse(success = false, message = "El nombre de usuario ya está en uso")
+                    )
+                } else {
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        ApiResponse(success = false, message = "Error al registrar usuario")
+                    )
+                }
             }
         }
         post("/login") {
