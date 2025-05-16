@@ -56,20 +56,20 @@ fun Route.userRoutes() {
         post("/login") {
             val loginRequest = call.receive<UserLoginRequest>()
 
-            val user = userService.findByEmail(loginRequest.email)
+            val user = userService.findByIdentifier(loginRequest.identifier)
             if (user == null) {
                 call.respond(
                     HttpStatusCode.Unauthorized,
-                    ApiResponse(success = false, message = "Credenciales inválidas")
+                    ApiResponse(success = false, message = "Usuario no registrado")
                 )
                 return@post
             }
 
-            val userPasswordHash = userService.getPasswordHashByEmail(loginRequest.email)
+            val userPasswordHash = userService.getPasswordHashByIdentifier(loginRequest.identifier)
             if (userPasswordHash == null || !BCrypt.checkpw(loginRequest.password, userPasswordHash)) {
                 call.respond(
                     HttpStatusCode.Unauthorized,
-                    ApiResponse(success = false, message = "Credenciales inválidas")
+                    ApiResponse(success = false, message = "Su usuario/correo o contraseña son erróneos")
                 )
                 return@post
             }

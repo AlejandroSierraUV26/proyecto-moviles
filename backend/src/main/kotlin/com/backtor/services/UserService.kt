@@ -11,6 +11,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.or
 
 import com.backtor.models.UserTable
 import com.backtor.models.PasswordResetTable
@@ -51,6 +52,24 @@ class UserService {
                         createdAt = it[UserTable.createdAt]
                     )
                 }.firstOrNull()
+        }
+    }
+    fun findByIdentifier(identifier: String): UserProfile? {
+        return transaction {
+            val userByEmail = UserTable.select { UserTable.email eq identifier }.firstOrNull()
+            val userByUsername = UserTable.select { UserTable.username eq identifier }.firstOrNull()
+            
+            val user = userByEmail ?: userByUsername
+            
+            user?.let {
+                UserProfile(
+                    email = it[UserTable.email],
+                    username = it[UserTable.username],
+                    streak = it[UserTable.streak],
+                    lastActivity = it[UserTable.lastActiveDate],
+                    createdAt = it[UserTable.createdAt]
+                )
+            }
         }
     }
     fun deleteUser(email: String) {
@@ -154,6 +173,15 @@ class UserService {
                 .select { UserTable.email eq email }
                 .map { it[UserTable.passwordHash] }
                 .firstOrNull()
+        }
+    }
+    fun getPasswordHashByIdentifier(identifier: String): String? {
+        return transaction {
+            val userByEmail = UserTable.select { UserTable.email eq identifier }.firstOrNull()
+            val userByUsername = UserTable.select { UserTable.username eq identifier }.firstOrNull()
+            
+            val user = userByEmail ?: userByUsername
+            user?.get(UserTable.passwordHash)
         }
     }
     fun savePasswordResetToken(email: String, token: Int) {

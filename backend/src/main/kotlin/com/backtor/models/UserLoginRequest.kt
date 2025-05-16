@@ -1,9 +1,9 @@
-    package com.backtor.models
+package com.backtor.models
 
-    import kotlinx.serialization.Serializable
+import kotlinx.serialization.Serializable
 
-    @Serializable
-    data class UserLoginRequest(
-        val email: String,
-        val password: String
-    )
+@Serializable
+data class UserLoginRequest(
+    val identifier: String, // Puede ser email o username
+    val password: String
+)

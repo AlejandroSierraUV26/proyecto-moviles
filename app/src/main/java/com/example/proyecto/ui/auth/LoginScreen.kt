@@ -19,11 +19,48 @@ import com.example.proyecto.navigation.AppScreens
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    
+    // Estados para los errores
+    var emailError by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf("") }
+    
+    val viewModel: LoginViewModel = viewModel()
+    val loginState by viewModel.loginState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(loginState) {
+        when (loginState) {
+            is LoginState.Success -> {
+                navController.navigate(AppScreens.HomeScreen.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+            is LoginState.Error -> {
+                val errorMessage = (loginState as LoginState.Error).message.lowercase()
+                when {
+                    errorMessage.contains("no encontrado") || errorMessage.contains("no registrado") -> {
+                        emailError = "Usuario no registrado"
+                        passwordError = "Usuario no registrado"
+                    }
+                    errorMessage.contains("credenciales") || errorMessage.contains("inválidas") -> {
+                        emailError = "Su usuario/correo o contraseña son erróneos"
+                        passwordError = "Su usuario/correo o contraseña son erróneos"
+                    }
+                    else -> {
+                        emailError = "Error al iniciar sesión"
+                        passwordError = "Error al iniciar sesión"
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -40,22 +77,31 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Campo de correo
+        // Campo de correo/usuario
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { 
+                email = it
+                emailError = if (it.isEmpty()) "Campo obligatorio" else ""
+            },
             label = {
                 Text(
-                    text = "Correo o usuario",
-                    fontSize = 16.sp
-                )
+                    text = "Correo o Usuario",
+                    fontSize = 16.sp)
             },
             modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp),
-            shape = RoundedCornerShape(28),
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
-            textStyle = TextStyle(fontSize = 18.sp)
+            isError = emailError.isNotEmpty(),
+            supportingText = {
+                if (emailError.isNotEmpty()) {
+                    Text(
+                        text = emailError,
+                        color = Color.Red
+                    )
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -63,30 +109,28 @@ fun LoginScreen(navController: NavController) {
         // Campo de contraseña
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = { 
+                password = it
+                passwordError = if (it.isEmpty()) "Campo obligatorio" else ""
+            },
             label = {
                 Text(
                     text = "Contraseña",
-                    fontSize = 16.sp
-                )
+                    fontSize = 16.sp)
             },
             modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp),
-            shape = RoundedCornerShape(28),
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
             singleLine = true,
-            textStyle = TextStyle(fontSize = 18.sp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "¿Se te olvidó la contraseña?",
-            fontSize = 14.sp,
-            color = Color(0xFF5678C1),
-            modifier = Modifier
-                .align(Alignment.Start)
-                .clickable { /* Aquí iría navegación o acción */ }
+            isError = passwordError.isNotEmpty(),
+            supportingText = {
+                if (passwordError.isNotEmpty()) {
+                    Text(
+                        text = passwordError,
+                        color = Color.Red
+                    )
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -94,10 +138,25 @@ fun LoginScreen(navController: NavController) {
         // Botón de ingresar
         Button(
             onClick = {
-                // Aquí va la lógica de autenticación
-                navController.navigate(AppScreens.HomeScreen.route) {
-                    // Limpia el historial de navegación
-                    popUpTo(0) { inclusive = true }
+                // Limpiar errores previos
+                emailError = ""
+                passwordError = ""
+                
+                // Validar campos antes de intentar login
+                var hasError = false
+                
+                if (email.isEmpty()) {
+                    emailError = "Campo obligatorio"
+                    hasError = true
+                }
+                
+                if (password.isEmpty()) {
+                    passwordError = "Campo obligatorio"
+                    hasError = true
+                }
+                
+                if (!hasError) {
+                    viewModel.loginUser(email, password)
                 }
             },
             colors = ButtonDefaults.buttonColors(
@@ -106,9 +165,17 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            shape = RoundedCornerShape(32.dp)
+            shape = RoundedCornerShape(50),
+            enabled = loginState !is LoginState.Loading
         ) {
-            Text("Ingresar", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            if (loginState is LoginState.Loading) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Text("Ingresar", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -131,7 +198,7 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            shape = RoundedCornerShape(32.dp)
+            shape = RoundedCornerShape(50)
         ) {
             Text("Regístrate", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
