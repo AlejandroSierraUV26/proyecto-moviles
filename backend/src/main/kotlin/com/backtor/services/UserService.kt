@@ -28,7 +28,7 @@ import jakarta.mail.internet.*
 import java.util.*
 
 class UserService {
-    fun saveUser(user: UserRegisterRequest) {
+    fun saveUser(user: UserRegisterRequest): UserRegisterRequest {
         val hashedPassword = BCrypt.hashpw(user.password, BCrypt.gensalt())
         transaction {
             UserTable.insert {
@@ -36,11 +36,13 @@ class UserService {
                 it[passwordHash] = hashedPassword
                 it[username] = user.username
                 it[streak] = 0
-                it[lastActiveDate] = LocalDateTime.now() // o LocalDate.now() si usas tipo DATE
+                it[lastActiveDate] = LocalDateTime.now()
                 it[createdAt] = LocalDateTime.now()
             }
         }
+        return user
     }
+
     fun findByEmail(email: String): UserProfile? {
         return transaction {
             UserTable.select { UserTable.email eq email }

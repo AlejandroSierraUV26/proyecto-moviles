@@ -36,7 +36,7 @@ fun ApplicationCall.getEmailFromToken(): String? =
 
 fun Route.userRoutes() {
     route("/api") {
-        post("/register") {
+        post("/register"){
             val userRequest = call.receive<UserRegisterRequest>()
 
             if (userService.findByEmail(userRequest.email) != null) {
@@ -48,10 +48,16 @@ fun Route.userRoutes() {
             }
 
             try {
-                userService.saveUser(userRequest)
+                val newUser = userService.saveUser(userRequest)
+
+                val token = jwtService.generateToken(newUser.email)
+
                 call.respond(
                     HttpStatusCode.Created,
-                    ApiResponse(success = true, message = "Usuario registrado correctamente")
+                    mapOf(
+                        "token" to token,
+                        "message" to "Usuario registrado correctamente"
+                    )
                 )
             } catch (e: Exception) {
                 call.respond(
@@ -60,7 +66,7 @@ fun Route.userRoutes() {
                 )
             }
         }
-        post("/login") {
+        post("/login"){
             val loginRequest = call.receive<UserLoginRequest>()
 
             val user = userService.findByEmail(loginRequest.email)
