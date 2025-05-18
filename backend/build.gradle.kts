@@ -50,5 +50,12 @@ dependencies {
     // Hashing
     implementation("org.mindrot:jbcrypt:0.4")
     implementation("joda-time:joda-time:2.12.5")
+
+    implementation("com.auth0:java-jwt:4.4.0")
+
+    implementation("io.ktor:ktor-server-auth:2.3.7")
+    implementation("io.ktor:ktor-server-auth-jwt:2.3.7")
+
+
 }
 

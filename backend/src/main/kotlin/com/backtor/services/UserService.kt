@@ -12,6 +12,8 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.and
 
+import com.backtor.security.JwtService
+
 import com.backtor.models.UserTable
 import com.backtor.models.PasswordResetTable
 import org.mindrot.jbcrypt.BCrypt
@@ -277,5 +279,19 @@ class UserService {
             updatedRows > 0
         }
     }
+    fun loginUser(loginRequest: UserLoginRequest): String? {
+        val user = transaction {
+            UserTable.select { UserTable.email eq loginRequest.email }
+                .map { it[UserTable.passwordHash] }
+                .firstOrNull()
+        }
+
+        return if (user != null && BCrypt.checkpw(loginRequest.password, user)) {
+            JwtService.generateToken(loginRequest.email)
+        } else {
+            null
+        }
+    }
+
 
 }
