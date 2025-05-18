@@ -22,6 +22,7 @@ import io.ktor.server.request.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
 
+import io.ktor.server.application.*
 import kotlinx.coroutines.launch
 
 import org.mindrot.jbcrypt.BCrypt
@@ -42,7 +43,7 @@ fun Route.userRoutes() {
             if (userService.findByEmail(userRequest.email) != null) {
                 call.respond(
                     HttpStatusCode.Conflict,
-                    ApiResponse(success = false, message = "El usuario ya existe")
+                    ApiResponse(success = false, message = "El correo electrónico ya está registrado")
                 )
                 return@post
             }
@@ -60,29 +61,36 @@ fun Route.userRoutes() {
                     )
                 )
             } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    ApiResponse(success = false, message = "Error al registrar usuario")
-                )
+                if (e.message?.contains("users_username_key") == true) {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ApiResponse(success = false, message = "El nombre de usuario ya está en uso")
+                    )
+                } else {
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        ApiResponse(success = false, message = "Error al registrar usuario")
+                    )
+                }
             }
         }
         post("/login"){
             val loginRequest = call.receive<UserLoginRequest>()
 
-            val user = userService.findByEmail(loginRequest.email)
+            val user = userService.findByIdentifier(loginRequest.identifier)
             if (user == null) {
                 call.respond(
                     HttpStatusCode.Unauthorized,
-                    ApiResponse(success = false, message = "Credenciales inválidas")
+                    ApiResponse(success = false, message = "Usuario no registrado")
                 )
                 return@post
             }
 
-            val userPasswordHash = userService.getPasswordHashByEmail(loginRequest.email)
+            val userPasswordHash = userService.getPasswordHashByIdentifier(loginRequest.identifier)
             if (userPasswordHash == null || !BCrypt.checkpw(loginRequest.password, userPasswordHash)) {
                 call.respond(
                     HttpStatusCode.Unauthorized,
-                    ApiResponse(success = false, message = "Credenciales inválidas")
+                    ApiResponse(success = false, message = "Su usuario/correo o contraseña son erróneos")
                 )
                 return@post
             }
