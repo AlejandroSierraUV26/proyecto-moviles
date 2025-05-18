@@ -1,18 +1,22 @@
 package com.example.proyecto.ui.auth
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.UserRegisterRequest
+import com.example.proyecto.data.models.RegisterResponse
+import com.example.proyecto.utils.SecurePreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 
-class RegisterViewModel : ViewModel() {
+class RegisterViewModel(application: Application) : AndroidViewModel(application) {
     private val _registerState = MutableStateFlow<RegisterState>(RegisterState.Initial)
     val registerState: StateFlow<RegisterState> = _registerState
+    private val securePreferences = SecurePreferences(application)
 
     fun registerUser(email: String, username: String, password: String) {
         viewModelScope.launch {
@@ -22,11 +26,18 @@ class RegisterViewModel : ViewModel() {
                     UserRegisterRequest(email, username, password)
                 )
                 if (response.isSuccessful) {
-                    _registerState.value = RegisterState.Success(response.body()?.message ?: "Registro exitoso")
+                    val registerResponse = response.body()
+                    if (registerResponse != null) {
+                        securePreferences.saveToken(registerResponse.token)
+                        securePreferences.saveUserEmail(email)
+                        _registerState.value = RegisterState.Success(registerResponse.message)
+                    } else {
+                        _registerState.value = RegisterState.Error("Error: Respuesta inválida del servidor")
+                    }
                 } else {
                     val errorBody = response.errorBody()?.string()
                     _registerState.value = RegisterState.Error(
-                        response.body()?.message ?: errorBody ?: "Error en el registro"
+                        errorBody ?: "Error en el registro"
                     )
                 }
             } catch (e: HttpException) {

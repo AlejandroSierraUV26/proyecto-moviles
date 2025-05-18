@@ -71,7 +71,7 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
 
                 if (expanded && courses.isNotEmpty()) {
                     Column {
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         courses.forEach { courseName ->
                             Text(
                                 text = courseName,
@@ -84,7 +84,7 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
                                     }
                                     .padding(8.dp)
                             )
-                            Divider(modifier = Modifier.padding(vertical = 4.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
                 }
