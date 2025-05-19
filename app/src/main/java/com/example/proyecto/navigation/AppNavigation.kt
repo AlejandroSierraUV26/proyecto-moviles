@@ -85,7 +85,7 @@ fun AppNavigation() {
                 SettingsScreen(navController)
             }
             composable(AppScreens.EditProfileScreen.route) {
-                EditProfileScreen()
+                EditProfileScreen(navController = navController)
             }
             composable(AppScreens.DeleteCourseScreen.route) {
                 DeleteCourseScreen()

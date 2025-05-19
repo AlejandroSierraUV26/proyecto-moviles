@@ -1,8 +1,12 @@
 package com.example.proyecto.data.models
 
+import com.google.gson.annotations.SerializedName
+
 data class ApiResponse(
-    val message: String,
-    val token: String? = null
+    @SerializedName("success")
+    val success: Boolean,
+    @SerializedName("message")
+    val message: String
 )
 
 data class LoginResponse(

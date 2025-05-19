@@ -150,6 +150,76 @@ fun Route.userRoutes() {
                 call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al restablecer la contraseña"))
             }
         }
+        post("/profile") {
+            val request = call.receive<Map<String, String>>()
+            val username = request["username"] ?: ""
+            val currentPassword = request["currentPassword"]
+            val newPassword = request["newPassword"]
+            val confirmPassword = request["confirmPassword"]
+
+            // Validar que el username no esté vacío
+            if (username.isBlank()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf(
+                    "success" to false,
+                    "message" to "El nombre de usuario no puede estar vacío"
+                ))
+                return@post
+            }
+
+            // Si se proporciona nueva contraseña, validar todos los campos
+            if (newPassword != null || confirmPassword != null) {
+                if (currentPassword == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "Debe proporcionar su contraseña actual"
+                    ))
+                    return@post
+                }
+                if (newPassword == null || confirmPassword == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "Debe proporcionar tanto la nueva contraseña como su confirmación"
+                    ))
+                    return@post
+                }
+                if (newPassword != confirmPassword) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "Las contraseñas no coinciden"
+                    ))
+                    return@post
+                }
+            }
+
+            try {
+                val userEmail = call.principal<JWTPrincipal>()?.getClaim("email", String::class)
+                if (userEmail == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf(
+                        "success" to false,
+                        "message" to "No autorizado"
+                    ))
+                    return@post
+                }
+
+                val result = userService.updateUserUsername(userEmail, username, currentPassword, newPassword)
+                if (result) {
+                    call.respond(mapOf(
+                        "success" to true,
+                        "message" to "Perfil actualizado correctamente"
+                    ))
+                } else {
+                    call.respond(HttpStatusCode.BadRequest, mapOf(
+                        "success" to false,
+                        "message" to "Error al actualizar el perfil"
+                    ))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "success" to false,
+                    "message" to "Error del servidor: ${e.message}"
+                ))
+            }
+        }
         authenticate("auth-jwt") {
             get("/profile") {
                 val email = call.getEmailFromToken()
@@ -180,30 +250,41 @@ fun Route.userRoutes() {
                 }
 
                 val newUsername = request["username"]
-                val password = request["password"]
+                val currentPassword = request["currentPassword"]
+                val newPassword = request["newPassword"]
                 val confirmPassword = request["confirmPassword"]
 
-                if (newUsername.isNullOrEmpty() || password.isNullOrEmpty() || confirmPassword.isNullOrEmpty()) {
-                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Nombre de usuario, contraseña y confirmación son requeridos"))
+                if (newUsername.isNullOrEmpty()) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Nombre de usuario es requerido"))
                     return@put
                 }
 
-                if (password != confirmPassword) {
-                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Las contraseñas no coinciden"))
-                    return@put
+                // Si se proporciona una nueva contraseña, validar que coincida con la confirmación
+                if (!newPassword.isNullOrEmpty()) {
+                    if (confirmPassword.isNullOrEmpty()) {
+                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Confirmación de contraseña es requerida"))
+                        return@put
+                    }
+                    if (newPassword != confirmPassword) {
+                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Las contraseñas no coinciden"))
+                        return@put
+                    }
+                    if (currentPassword.isNullOrEmpty()) {
+                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Debe proporcionar su contraseña actual"))
+                        return@put
+                    }
                 }
 
-                val userPasswordHash = userService.getPasswordHashByEmail(email)
-                if (userPasswordHash == null || !BCrypt.checkpw(password, userPasswordHash)) {
-                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "Contraseña incorrecta"))
-                    return@put
-                }
-
-                val success = userService.updateUserUsername(email, newUsername, password, confirmPassword)
-                if (success) {
-                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Nombre de usuario actualizado correctamente"))
+                val result = userService.updateUserUsername(
+                    email = email,
+                    newUsername = newUsername,
+                    currentPassword = currentPassword,
+                    newPassword = newPassword
+                )
+                if (result) {
+                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Perfil actualizado correctamente"))
                 } else {
-                    call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar el nombre de usuario"))
+                    call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar el perfil"))
                 }
             }
             put("/update-password") {
@@ -217,19 +298,36 @@ fun Route.userRoutes() {
                     return@put
                 }
 
-                val email = request["email"]
-                val password = request["password"]
+                val email = call.getEmailFromToken()
+                val currentPassword = request["currentPassword"]
                 val newPassword = request["newPassword"]
+                val confirmPassword = request["confirmPassword"]
 
-                if (email == null || newPassword == null || password == null) {
+                if (email == null) {
                     call.respond(
                         HttpStatusCode.BadRequest,
-                        ApiResponse(false, "Email, contraseña y nueva contraseña son requeridos")
+                        ApiResponse(false, "No autorizado")
                     )
                     return@put
                 }
 
-                val success = userService.updateUserPassword(email, newPassword, password)
+                if (currentPassword.isNullOrEmpty() || newPassword.isNullOrEmpty() || confirmPassword.isNullOrEmpty()) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiResponse(false, "Todos los campos son requeridos")
+                    )
+                    return@put
+                }
+
+                if (newPassword != confirmPassword) {
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiResponse(false, "Las contraseñas no coinciden")
+                    )
+                    return@put
+                }
+
+                val success = userService.updateUserPassword(email, newPassword, currentPassword)
                 if (success) {
                     call.respond(
                         HttpStatusCode.OK,
@@ -237,8 +335,8 @@ fun Route.userRoutes() {
                     )
                 } else {
                     call.respond(
-                        HttpStatusCode.NotFound,
-                        ApiResponse(false, "Usuario no encontrado")
+                        HttpStatusCode.BadRequest,
+                        ApiResponse(false, "Contraseña actual incorrecta")
                     )
                 }
             }
