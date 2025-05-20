@@ -101,6 +101,7 @@ fun LoginScreen(navController: NavController) {
                     text = "Correo o Usuario",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp), // ← Tamaño más pequeño dentro del input
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -130,6 +131,7 @@ fun LoginScreen(navController: NavController) {
                     text = "Contraseña",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -158,6 +160,16 @@ fun LoginScreen(navController: NavController) {
                     )
                 }
             }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "¿Se te olvidó la contraseña?",
+            fontSize = 14.sp,
+            color = Color(0xFF5678C1),
+            modifier = Modifier
+                .align(Alignment.Start)
+                .clickable { navController.navigate(AppScreens.RecuperScreen.route)}
         )
 
         Spacer(modifier = Modifier.height(32.dp))

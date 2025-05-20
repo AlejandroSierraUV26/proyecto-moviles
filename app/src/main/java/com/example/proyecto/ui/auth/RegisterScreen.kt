@@ -22,6 +22,7 @@ import com.example.proyecto.utils.DoubleBackToExitHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import com.example.proyecto.R
 
 @Composable
@@ -113,6 +114,7 @@ fun RegisterScreen(navController: NavController) {
                     text = "Correo",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -142,6 +144,7 @@ fun RegisterScreen(navController: NavController) {
                     text = "Usuario",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -171,6 +174,7 @@ fun RegisterScreen(navController: NavController) {
                     text = "Contraseña",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

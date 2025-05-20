@@ -11,4 +11,11 @@ sealed class AppScreens(val route: String){
     object SettingsScreen: AppScreens("settings_screen")
     object EditProfileScreen: AppScreens("edit_profile")
     object DeleteCourseScreen: AppScreens("delete_course_screen")
+    object CargaScreen : AppScreens("carga_screen")
+    object CourseEntryScreen : AppScreens("Curso Inicio")
+    object SetPreguntasSreen : AppScreens("set_preguntas")
+    object ResultadosModuloScreen : AppScreens("resultados_modulo")
+    object RecuperScreen : AppScreens("recuperacion-contraseña")
+    object SeleCourseScreen: AppScreens("seleccion-curso")
+    object NivelUsuarioScreen: AppScreens("nivel_screen")
 }
