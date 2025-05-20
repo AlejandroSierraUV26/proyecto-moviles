@@ -88,7 +88,11 @@ fun SeleCourseScreen(navController: NavController) {
 
         // 🔵 Botón "Algo nuevo" normal
         Button(
-            onClick = { /* Navegar a algo nuevo */ },
+            onClick = { 
+                navController.navigate(AppScreens.CoursesScreen.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
             modifier = Modifier
                 .fillMaxWidth()
