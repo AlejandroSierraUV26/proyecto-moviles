@@ -135,13 +135,7 @@ fun AppNavigation() {
                 val quizViewModel: QuizViewModel = viewModel()
                 ResultadosModuloScreen(
                     quizViewModel = quizViewModel,
-                    onContinuar = {
-                        navController.navigate("") {
-                            popUpTo(AppScreens.ResultadosModuloScreen.route) {
-                                inclusive = true // elimina Resultados del stack
-                            }
-                        }
-                    }
+                    navController = navController
                 )
             }
             composable(AppScreens.SeleCourseScreen.route) {

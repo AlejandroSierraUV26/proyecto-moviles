@@ -55,7 +55,7 @@ fun RegisterScreen(navController: NavController) {
     LaunchedEffect(registerState) {
         when (registerState) {
             is RegisterState.Success -> {
-                navController.navigate(AppScreens.HomeScreen.route) {
+                navController.navigate(AppScreens.SeleCourseScreen.route) {
                     popUpTo(0) { inclusive = true }
                 }
             }

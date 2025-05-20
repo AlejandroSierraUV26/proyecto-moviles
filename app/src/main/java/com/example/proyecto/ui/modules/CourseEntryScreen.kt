@@ -104,14 +104,27 @@ fun CourseEntryScreen(navController: NavController) {
         // 🔵 Botón "Algo nuevo" normal
         Button(
             onClick = {
-                navController.navigate("${AppScreens.CargaScreen.route}/${AppScreens.SetPreguntasSreen.route}")
+                when (selectedLevel) {
+                    "Desde el principio" -> {
+                        navController.navigate(AppScreens.HomeScreen.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                    "Hacer un quiz" -> {
+                        navController.navigate("${AppScreens.CargaScreen.route}/${AppScreens.SetPreguntasSreen.route}")
+                    }
+                    else -> {
+                        // No hacer nada si no hay selección
+                    }
+                }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
                 .offset(y = (50).dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp)
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+            enabled = selectedLevel != null
         ) {
             Text(
                 "Continuar",

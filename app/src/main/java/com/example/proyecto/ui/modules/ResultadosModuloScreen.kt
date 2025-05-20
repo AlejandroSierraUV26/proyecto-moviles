@@ -17,11 +17,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.proyecto.navigation.AppScreens
 
 @Composable
 fun ResultadosModuloScreen(
     quizViewModel: QuizViewModel,
-    onContinuar: () -> Unit
+    navController: NavController
 ) {
     val aciertos = quizViewModel.aciertos.collectAsState()
     val progreso = quizViewModel.progreso.collectAsState()
@@ -83,7 +85,11 @@ fun ResultadosModuloScreen(
         }
 
         Button(
-            onClick = { onContinuar() },
+            onClick = { 
+                navController.navigate(AppScreens.HomeScreen.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
             modifier = Modifier
                 .fillMaxWidth()

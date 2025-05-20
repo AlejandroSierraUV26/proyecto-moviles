@@ -60,7 +60,7 @@ fun SeleCourseScreen(navController: NavController) {
             columns = GridCells.Fixed(2),
             modifier = Modifier.Companion
                 .fillMaxWidth()
-                .height(300.dp), // puedes ajustar esta altura
+                .height(350.dp), // puedes ajustar esta altura
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
