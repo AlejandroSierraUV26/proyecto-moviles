@@ -2,43 +2,13 @@ package com.backtor.services
 
 import com.backtor.models.*
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-
+import org.jetbrains.exposed.sql.transactions.transaction
 
 class ExamService {
-    // Categories
-    fun createCategory(request: CategoryRequest): Int = transaction {
-        CategoryTable.insert {
-            it[title] = request.title
-        }[CategoryTable.id]
-    }
-    fun getAllCategories(): List<Category> = transaction {
-        CategoryTable.selectAll().map {
-            Category(
-                id = it[CategoryTable.id],
-                title = it[CategoryTable.title]
-            )
-        }
-    }
-    fun updateCategory(id: Int, request: CategoryRequest): Boolean = transaction {
-        CategoryTable.update({ CategoryTable.id eq id }) {
-            it[title] = request.title
-        } > 0
-    }
-    fun deleteCategory(id: Int): Boolean = transaction {
-        CategoryTable.deleteWhere { CategoryTable.id eq id } > 0
-    }
-    // Courses
+    // ─────────────── CURSOS ───────────────
     fun createCourse(request: CourseRequest): Int = transaction {
-        val categoryExists = CategoryTable.select {
-            CategoryTable.id eq request.categoryId
-        }.count() > 0
-        if (!categoryExists) {
-            throw IllegalArgumentException("La categoría no existe")
-        }
         CourseTable.insert {
-            it[categoryId] = request.categoryId
             it[title] = request.title
             it[description] = request.description
         }[CourseTable.id]
@@ -47,111 +17,192 @@ class ExamService {
         CourseTable.selectAll().map {
             Course(
                 id = it[CourseTable.id],
-                categoryId = it[CourseTable.categoryId],
-                title = it[CourseTable.title],
-                description = it[CourseTable.description]
-            )
-        }
-    }
-    fun getCoursesByCategory(categoryId: Int): List<Course> = transaction {
-        CourseTable.select { CourseTable.categoryId eq categoryId }.map {
-            Course(
-                id = it[CourseTable.id],
-                categoryId = it[CourseTable.categoryId],
                 title = it[CourseTable.title],
                 description = it[CourseTable.description]
             )
         }
     }
     fun updateCourse(id: Int, request: CourseRequest): Boolean = transaction {
-        // Verificar que la categoría exista
-        val categoryExists = CategoryTable.select {
-            CategoryTable.id eq request.categoryId
-        }.count() > 0
-
-        if (!categoryExists) {
-            throw IllegalArgumentException("La categoría no existe")
-        }
         CourseTable.update({ CourseTable.id eq id }) {
-            it[categoryId] = request.categoryId
             it[title] = request.title
             it[description] = request.description
         } > 0
     }
     fun deleteCourse(id: Int): Boolean = transaction {
-        QuestionTable.deleteWhere { QuestionTable.courseId eq id }
         CourseTable.deleteWhere { CourseTable.id eq id } > 0
     }
-    // Questions
-    fun createQuestion(request: QuestionRequest): Int = transaction {
-        if (request.options.size < 2) {
-            throw IllegalArgumentException("Debe haber al menos 2 opciones")
-        }
-        if (!request.options.contains(request.correctAnswer)) {
-            throw IllegalArgumentException("La respuesta correcta debe estar entre las opciones")
-        }
-        val courseExists = CourseTable.select {
-            CourseTable.id eq request.courseId
-        }.count() > 0
-        if (!courseExists) {
-            throw IllegalArgumentException("El curso no existe")
-        }
-        QuestionTable.insert {
+    // ─────────────── SECCIONES ───────────────
+    fun createSection(request: SectionRequest): Int = transaction {
+        val exists = CourseTable.select { CourseTable.id eq request.courseId }.count() > 0
+        if (!exists) throw IllegalArgumentException("Curso no encontrado")
+        SectionTable.insert {
             it[courseId] = request.courseId
+            it[title] = request.title
             it[difficultyLevel] = request.difficultyLevel
+        }[SectionTable.id]
+    }
+    fun getSectionsByCourse(courseId: Int): List<Section> = transaction {
+        SectionTable.select { SectionTable.courseId eq courseId }.map {
+            Section(it[SectionTable.id], it[SectionTable.courseId], it[SectionTable.title], it[SectionTable.difficultyLevel])
+        }
+    }
+    fun getAllSections(): List<Section> = transaction {
+        SectionTable.selectAll().map {
+            Section(it[SectionTable.id], it[SectionTable.courseId], it[SectionTable.title], it[SectionTable.difficultyLevel])
+        }
+    }
+    fun updateSection(id: Int, request: SectionRequest): Boolean = transaction {
+        val exists = CourseTable.select { CourseTable.id eq request.courseId }.count() > 0
+        if (!exists) throw IllegalArgumentException("Curso no encontrado")
+        SectionTable.update({ SectionTable.id eq id }) {
+            it[courseId] = request.courseId
+            it[title] = request.title
+            it[difficultyLevel] = request.difficultyLevel
+        } > 0
+    }
+    fun deleteSection(id: Int): Boolean = transaction {
+        SectionTable.deleteWhere { SectionTable.id eq id } > 0
+    }
+    // ─────────────── EXÁMENES ───────────────
+    fun createExam(request: ExamRequest): Int = transaction {
+        val sectionExists = SectionTable.select { SectionTable.id eq request.sectionId }.count() > 0
+        if (!sectionExists) throw IllegalArgumentException("Sección no encontrada")
+        ExamTable.insert {
+            it[title] = request.title
+            it[description] = request.description
+            it[sectionId] = request.sectionId
+            it[difficultyLevel] = request.difficultyLevel
+        }[ExamTable.id]
+    }
+    fun getExamById(id: Int): Exam? = transaction {
+        ExamTable.select { ExamTable.id eq id }.map {
+            Exam(
+                id = it[ExamTable.id],
+                title = it[ExamTable.title],
+                description = it[ExamTable.description],
+                sectionId = it[ExamTable.sectionId],
+                difficultyLevel = it[ExamTable.difficultyLevel]
+            )
+        }.singleOrNull()
+    }
+    fun getExamsBySection(sectionId: Int): List<Exam> = transaction {
+        ExamTable.select { ExamTable.sectionId eq sectionId }.map {
+            Exam(
+                id = it[ExamTable.id],
+                title = it[ExamTable.title],
+                description = it[ExamTable.description],
+                sectionId = it[ExamTable.sectionId],
+                difficultyLevel = it[ExamTable.difficultyLevel]
+            )
+        }
+    }
+    fun getAllExams(): List<Exam> = transaction {
+        ExamTable.selectAll().map {
+            Exam(
+                id = it[ExamTable.id],
+                title = it[ExamTable.title],
+                description = it[ExamTable.description],
+                sectionId = it[ExamTable.sectionId],
+                difficultyLevel = it[ExamTable.difficultyLevel]
+            )
+        }
+    }
+    fun updateExam(id: Int, request: ExamRequest): Boolean = transaction {
+        val sectionExists = SectionTable.select { SectionTable.id eq request.sectionId }.count() > 0
+        if (!sectionExists) throw IllegalArgumentException("Sección no encontrada")
+        ExamTable.update({ ExamTable.id eq id }) {
+            it[title] = request.title
+            it[description] = request.description
+            it[sectionId] = request.sectionId
+            it[difficultyLevel] = request.difficultyLevel
+        } > 0
+    }
+    fun deleteExam(id: Int): Boolean = transaction {
+        ExamTable.deleteWhere { ExamTable.id eq id } > 0
+    }
+    // ─────────────── PREGUNTAS ───────────────
+    fun createQuestion(request: QuestionRequest): Int = transaction {
+        val exam = ExamTable.select {
+            (ExamTable.sectionId eq request.sectionId) and
+                    (ExamTable.difficultyLevel eq request.difficultyLevel)
+        }.singleOrNull() ?: throw IllegalArgumentException("No existe un examen para esa sección y dificultad")
+        if (request.options.size < 2 || request.correctAnswer !in request.options)
+            throw IllegalArgumentException("Opciones inválidas o respuesta incorrecta fuera de opciones")
+        QuestionTable.insert {
+            it[examId] = exam[ExamTable.id]
             it[questionText] = request.questionText
             it[options] = request.options.joinToString("||")
             it[correctAnswer] = request.correctAnswer
+            it[feedback] = request.feedback
         }[QuestionTable.id]
+    }
+    fun getQuestionsByExam(examId: Int): List<Question> = transaction {
+        QuestionTable.select { QuestionTable.examId eq examId }.map {
+            Question(
+                id = it[QuestionTable.id],
+                examId = it[QuestionTable.examId],
+                questionText = it[QuestionTable.questionText],
+                options = it[QuestionTable.options].split("||"),
+                correctAnswer = it[QuestionTable.correctAnswer],
+                feedback = it[QuestionTable.feedback]
+            )
+        }
     }
     fun getAllQuestions(): List<Question> = transaction {
         QuestionTable.selectAll().map {
             Question(
                 id = it[QuestionTable.id],
-                courseId = it[QuestionTable.courseId],
-                difficultyLevel = it[QuestionTable.difficultyLevel],
+                examId = it[QuestionTable.examId],
                 questionText = it[QuestionTable.questionText],
-                options = it[QuestionTable.options]?.split("||") ?: emptyList(),
-                correctAnswer = it[QuestionTable.correctAnswer]
-            )
-        }
-    }
-    fun getQuestionsByCourse(courseId: Int): List<Question> = transaction {
-        QuestionTable.select { QuestionTable.courseId eq courseId }.map {
-            Question(
-                id = it[QuestionTable.id],
-                courseId = it[QuestionTable.courseId],
-                difficultyLevel = it[QuestionTable.difficultyLevel],
-                questionText = it[QuestionTable.questionText],
-                options = it[QuestionTable.options]?.split("||") ?: emptyList(), // Null-safety
-                correctAnswer = it[QuestionTable.correctAnswer]
+                options = it[QuestionTable.options].split("||"),
+                correctAnswer = it[QuestionTable.correctAnswer],
+                feedback = it[QuestionTable.feedback]
             )
         }
     }
     fun updateQuestion(id: Int, request: QuestionRequest): Boolean = transaction {
-        if (request.options.size < 2) {
-            throw IllegalArgumentException("Debe haber al menos 2 opciones")
-        }
+        val exam = ExamTable.select {
+            (ExamTable.sectionId eq request.sectionId) and
+                    (ExamTable.difficultyLevel eq request.difficultyLevel)
+        }.singleOrNull() ?: throw IllegalArgumentException("No existe un examen para esa sección y dificultad")
 
-        if (!request.options.contains(request.correctAnswer)) {
-            throw IllegalArgumentException("La respuesta correcta debe estar entre las opciones")
-        }
-        val courseExists = CourseTable.select {
-            CourseTable.id eq request.courseId
-        }.count() > 0
-
-        if (!courseExists) {
-            throw IllegalArgumentException("El curso no existe")
-        }
+        if (request.options.size < 2 || request.correctAnswer !in request.options)
+            throw IllegalArgumentException("Opciones inválidas o respuesta incorrecta fuera de opciones")
         QuestionTable.update({ QuestionTable.id eq id }) {
-            it[courseId] = request.courseId
-            it[difficultyLevel] = request.difficultyLevel
+            it[examId] = exam[ExamTable.id]
             it[questionText] = request.questionText
             it[options] = request.options.joinToString("||")
             it[correctAnswer] = request.correctAnswer
+            it[feedback] = request.feedback
         } > 0
     }
     fun deleteQuestion(id: Int): Boolean = transaction {
         QuestionTable.deleteWhere { QuestionTable.id eq id } > 0
+    }
+    // ─────────────── EVALUACIÓN ───────────────
+    fun evaluateExam(submission: ExamSubmission): ExamFeedbackResult = transaction {
+        val examId = submission.examId
+        val examExists = ExamTable.select { ExamTable.id eq examId }.count() > 0
+        if (!examExists) throw IllegalArgumentException("Examen no encontrado")
+        val feedbackList = submission.answers.mapNotNull { answer ->
+            val row = QuestionTable.select {
+                (QuestionTable.id eq answer.questionId) and
+                        (QuestionTable.examId eq examId)
+            }.firstOrNull() ?: return@mapNotNull null
+            val correct = row[QuestionTable.correctAnswer]
+            val options = row[QuestionTable.options].split("||")
+            AnswerFeedback(
+                questionId = answer.questionId,
+                questionText = row[QuestionTable.questionText],
+                options = options,
+                selectedAnswer = answer.selectedAnswer,
+                correctAnswer = correct,
+                isCorrect = correct == answer.selectedAnswer
+            )
+        }
+        val correct = feedbackList.count { it.isCorrect }
+        val total = feedbackList.size
+        val percentage = if (total > 0) (correct * 100) / total else 0
+        ExamFeedbackResult(feedbackList, correct, total, percentage)
     }
 }

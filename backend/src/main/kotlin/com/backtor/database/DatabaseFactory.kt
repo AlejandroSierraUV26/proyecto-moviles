@@ -15,5 +15,5 @@ object DatabaseFactory {
         }
         val dataSource = HikariDataSource(config)
         Database.connect(dataSource)
-    }
+        }
 }
