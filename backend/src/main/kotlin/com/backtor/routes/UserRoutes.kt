@@ -206,7 +206,7 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar el nombre de usuario"))
                 }
             }
-            put("/update-password") {
+            put("/password/update") {
                 val request = try {
                     call.receive<Map<String, String>>()
                 } catch (e: Exception) {
@@ -300,7 +300,30 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak reseteado"))
                 }
             }
+            put("/experience/update") {
+                val email = call.getEmailFromToken()
+                val request = try {
+                    call.receive<Map<String, String>>()
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Datos inválidos"))
+                    return@put
+                }
+                val score = request["score"]?.toIntOrNull()
+                if (email == null) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                    return@put
+                }
+                val user = userService.getUserProfile(email)
+                if (user == null) {
+                    call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+                } else {
+                    userService.updateExperience(email, score ?: 0)
+                    userService.addExperience(email, score ?: 0)
+                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Experiencia actualizada"))
+                }
+
             }
         }
     }
+}
 

@@ -17,6 +17,7 @@ object UserTable : Table("users") {
     val streak = integer("streak").default(0)
     val lastActiveDate = datetime("last_active_date")
     val createdAt = datetime("created_at")
+    val experienceTotal = integer("experience_total").default(0)
 
     override val primaryKey = PrimaryKey(id)
 }
