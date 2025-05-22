@@ -18,6 +18,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.proyecto.utils.DoubleBackToExitHandler
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import com.example.proyecto.R
 
 @Composable
 fun RegisterScreen(navController: NavController) {
@@ -30,8 +36,15 @@ fun RegisterScreen(navController: NavController) {
     var usernameError by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf("") }
     
+    // Estado para mostrar/ocultar contraseña
+    var showPassword by remember { mutableStateOf(false) }
+    
     val viewModel: RegisterViewModel = viewModel()
     val registerState by viewModel.registerState.collectAsStateWithLifecycle()
+
+    DoubleBackToExitHandler {
+        android.os.Process.killProcess(android.os.Process.myPid())
+    }
 
     // Función para validar el formato del correo
     fun isValidEmail(email: String): Boolean {
@@ -42,7 +55,7 @@ fun RegisterScreen(navController: NavController) {
     LaunchedEffect(registerState) {
         when (registerState) {
             is RegisterState.Success -> {
-                navController.navigate(AppScreens.HomeScreen.route) {
+                navController.navigate(AppScreens.SeleCourseScreen.route) {
                     popUpTo(0) { inclusive = true }
                 }
             }
@@ -101,6 +114,7 @@ fun RegisterScreen(navController: NavController) {
                     text = "Correo",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -130,6 +144,7 @@ fun RegisterScreen(navController: NavController) {
                     text = "Usuario",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -159,6 +174,7 @@ fun RegisterScreen(navController: NavController) {
                     text = "Contraseña",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -169,6 +185,21 @@ fun RegisterScreen(navController: NavController) {
                     Text(
                         text = passwordError,
                         color = Color.Red
+                    )
+                }
+            },
+            visualTransformation = if (showPassword) {
+                androidx.compose.ui.text.input.VisualTransformation.None
+            } else {
+                androidx.compose.ui.text.input.PasswordVisualTransformation()
+            },
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (showPassword) R.drawable.ic_visibility_off else R.drawable.ic_visibility
+                        ),
+                        contentDescription = if (showPassword) "Ocultar contraseña" else "Mostrar contraseña"
                     )
                 }
             }
@@ -243,7 +274,9 @@ fun RegisterScreen(navController: NavController) {
 
         Button(
             onClick = {
-                navController.navigate(AppScreens.LoginScreen.route)
+                navController.navigate(AppScreens.LoginScreen.route) {
+                    popUpTo(AppScreens.RegisterScreen.route) { inclusive = true }
+                }
             },
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF052659)

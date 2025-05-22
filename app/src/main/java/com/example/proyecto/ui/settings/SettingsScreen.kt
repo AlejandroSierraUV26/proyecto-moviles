@@ -45,7 +45,9 @@ fun SettingsScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
         
         Button(
-            onClick = { navController.navigate(AppScreens.EditProfileScreen.route) },
+            onClick = {
+                navController.navigate(AppScreens.EditProfileScreen.route)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),

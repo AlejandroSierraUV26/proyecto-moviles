@@ -21,6 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.proyecto.utils.DoubleBackToExitHandler
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.painterResource
+import com.example.proyecto.R
 
 @Composable
 fun LoginScreen(navController: NavController) {
@@ -31,8 +36,15 @@ fun LoginScreen(navController: NavController) {
     var emailError by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf("") }
     
+    // Estado para mostrar/ocultar contraseña
+    var showPassword by remember { mutableStateOf(false) }
+    
     val viewModel: LoginViewModel = viewModel()
     val loginState by viewModel.loginState.collectAsStateWithLifecycle()
+
+    DoubleBackToExitHandler {
+        android.os.Process.killProcess(android.os.Process.myPid())
+    }
 
     LaunchedEffect(loginState) {
         when (loginState) {
@@ -89,6 +101,7 @@ fun LoginScreen(navController: NavController) {
                     text = "Correo o Usuario",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp), // ← Tamaño más pequeño dentro del input
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -118,6 +131,7 @@ fun LoginScreen(navController: NavController) {
                     text = "Contraseña",
                     fontSize = 16.sp)
             },
+            textStyle = TextStyle(fontSize = 14.sp),
             modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -130,7 +144,32 @@ fun LoginScreen(navController: NavController) {
                         color = Color.Red
                     )
                 }
+            },
+            visualTransformation = if (showPassword) {
+                androidx.compose.ui.text.input.VisualTransformation.None
+            } else {
+                androidx.compose.ui.text.input.PasswordVisualTransformation()
+            },
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (showPassword) R.drawable.ic_visibility_off else R.drawable.ic_visibility
+                        ),
+                        contentDescription = if (showPassword) "Ocultar contraseña" else "Mostrar contraseña"
+                    )
+                }
             }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "¿Se te olvidó la contraseña?",
+            fontSize = 14.sp,
+            color = Color(0xFF5678C1),
+            modifier = Modifier
+                .align(Alignment.Start)
+                .clickable { navController.navigate(AppScreens.RecuperScreen.route)}
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -190,7 +229,9 @@ fun LoginScreen(navController: NavController) {
 
         Button(
             onClick = {
-                navController.navigate(AppScreens.RegisterScreen.route)
+                navController.navigate(AppScreens.RegisterScreen.route) {
+                    popUpTo(AppScreens.LoginScreen.route) { inclusive = true }
+                }
             },
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF052659)

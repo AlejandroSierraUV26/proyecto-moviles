@@ -1,18 +1,22 @@
 package com.example.proyecto.ui.auth
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.UserLoginRequest
+import com.example.proyecto.data.models.LoginResponse
+import com.example.proyecto.utils.SecurePreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(application: Application) : AndroidViewModel(application) {
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Initial)
     val loginState: StateFlow<LoginState> = _loginState
+    private val securePreferences = SecurePreferences(application)
 
     fun loginUser(emailOrUsername: String, password: String) {
         viewModelScope.launch {
@@ -22,11 +26,18 @@ class LoginViewModel : ViewModel() {
                     UserLoginRequest(identifier = emailOrUsername, password = password)
                 )
                 if (response.isSuccessful) {
-                    _loginState.value = LoginState.Success(response.body()?.message ?: "Login exitoso")
+                    val loginResponse = response.body()
+                    if (loginResponse != null) {
+                        securePreferences.saveToken(loginResponse.token)
+                        securePreferences.saveUserEmail(emailOrUsername)
+                        _loginState.value = LoginState.Success("Login exitoso")
+                    } else {
+                        _loginState.value = LoginState.Error("Error: Respuesta inválida del servidor")
+                    }
                 } else {
                     val errorBody = response.errorBody()?.string()
                     _loginState.value = LoginState.Error(
-                        response.body()?.message ?: errorBody ?: "Error en el login"
+                        errorBody ?: "Error en el login"
                     )
                 }
             } catch (e: HttpException) {

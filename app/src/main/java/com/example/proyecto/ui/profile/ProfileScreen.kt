@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.proyecto.R
 import com.example.proyecto.utils.DoubleBackToExitHandler
-import com.patrykandpatrick.vico.compose.axis.horizontal.bottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.startAxis
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.core.entry.entryModelOf
@@ -109,8 +109,8 @@ fun ProfileScreen() {
                 Chart(
                     chart = lineChart(),
                     model = entryModelOf(0f, 2f, 4f, 6f, 8f, 10f, 12f),
-                    startAxis = startAxis(),
-                    bottomAxis = bottomAxis()
+                    startAxis = rememberStartAxis(),
+                    bottomAxis = rememberBottomAxis()
                 )
             }
         }

@@ -336,26 +336,31 @@ class UserService {
         e.printStackTrace()
     }
     }
-    fun updateUserUsername(email: String, newUsername: String, password: String, confirmPassword: String): Boolean {
+    fun updateUserUsername(email: String, newUsername: String, currentPassword: String?, newPassword: String?): Boolean {
         return transaction {
-            // Verificar si la contraseña es correcta
-            val hashedPassword = UserTable
-                .select { UserTable.email eq email }
-                .map { it[UserTable.passwordHash] }
-                .firstOrNull()
+            val user = UserTable.select { UserTable.email eq email }.firstOrNull()
+            if (user == null) return@transaction false
 
-            if (hashedPassword != null && BCrypt.checkpw(password, hashedPassword)) {
-                if (password != confirmPassword) {
-                    return@transaction false // Las contraseñas no coinciden
-                }
-                // Actualizar el nombre de usuario
-                val updatedRows = UserTable.update({ UserTable.email eq email }) {
-                    it[UserTable.username] = newUsername
-                }
-                updatedRows > 0
-            } else {
-                false // Contraseña incorrecta
+            // Si se proporciona contraseña actual, verificar que sea correcta
+            if (currentPassword != null) {
+                val isPasswordValid = BCrypt.checkpw(currentPassword, user[UserTable.passwordHash])
+                if (!isPasswordValid) return@transaction false
             }
+
+            // Actualizar username
+            UserTable.update({ UserTable.email eq email }) {
+                it[UserTable.username] = newUsername
+            }
+
+            // Si se proporciona nueva contraseña, actualizarla
+            if (newPassword != null) {
+                val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+                UserTable.update({ UserTable.email eq email }) {
+                    it[UserTable.passwordHash] = hashedPassword
+                }
+            }
+
+            true
         }
     }
     fun updateUserPasswordToken(email: String, newPassword: String): Boolean {

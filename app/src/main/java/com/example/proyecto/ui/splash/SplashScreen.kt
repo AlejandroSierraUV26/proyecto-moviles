@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,20 +27,33 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.ui.theme.ProyectoTheme
+import com.example.proyecto.utils.SecurePreferences
 import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val securePreferences = SecurePreferences(context)
+
     ProyectoTheme {
         LaunchedEffect(key1 = true) {
             delay(2000)
-            navController.popBackStack()
-            navController.navigate(AppScreens.LoginScreen.route)
+            val token = securePreferences.getToken()
+            if (token != null) {
+                // Si hay un token guardado, navegar directamente a Home
+                navController.navigate(AppScreens.HomeScreen.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            } else {
+                // Si no hay token, navegar a Login
+                navController.navigate(AppScreens.LoginScreen.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
         }
 
         Splash()
     }
-
 }
 
 @Composable
@@ -72,7 +86,6 @@ fun Splash() {
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
-
         }
     }
 }
