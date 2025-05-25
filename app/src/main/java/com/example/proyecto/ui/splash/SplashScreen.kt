@@ -28,6 +28,7 @@ import androidx.navigation.NavHostController
 import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.ui.theme.ProyectoTheme
 import com.example.proyecto.utils.SecurePreferences
+import com.example.proyecto.data.api.RetrofitClient
 import kotlinx.coroutines.delay
 
 @Composable
@@ -39,8 +40,14 @@ fun SplashScreen(navController: NavHostController) {
         LaunchedEffect(key1 = true) {
             delay(2000)
             val token = securePreferences.getToken()
-            if (token != null) {
-                // Si hay un token guardado, navegar directamente a Home
+            if (token != null && token.isNotEmpty()) {
+                // Si hay un token guardado, intentar cargar los cursos antes de navegar
+                try {
+                    RetrofitClient.apiService.getUserCourses()
+                } catch (e: Exception) {
+                    // Ignorar errores al cargar cursos inicialmente
+                }
+                // Navegar a Home
                 navController.navigate(AppScreens.HomeScreen.route) {
                     popUpTo(0) { inclusive = true }
                 }

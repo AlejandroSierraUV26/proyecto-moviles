@@ -28,6 +28,8 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     val loginResponse = response.body()
                     if (loginResponse != null) {
+                        // Limpiar la sesión anterior antes de guardar la nueva
+                        securePreferences.clearSession()
                         securePreferences.saveToken(loginResponse.token)
                         securePreferences.saveUserEmail(emailOrUsername)
                         _loginState.value = LoginState.Success("Login exitoso")

@@ -32,6 +32,11 @@ fun CoursesScreen(
     val context = LocalContext.current
     val availableCourses by viewModel.availableCourses.collectAsState()
     
+    // Cargar los cursos disponibles cuando se inicia el CoursesScreen
+    LaunchedEffect(Unit) {
+        viewModel.loadAvailableCourses()
+    }
+    
     DoubleBackToExitHandler {
         android.os.Process.killProcess(android.os.Process.myPid())
     }

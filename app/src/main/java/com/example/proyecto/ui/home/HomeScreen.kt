@@ -24,6 +24,11 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
     val selectedCourse by viewModel.selectedCourse.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     
+    // Cargar los cursos cuando se inicia el HomeScreen
+    LaunchedEffect(Unit) {
+        viewModel.loadUserCourses()
+    }
+    
     DoubleBackToExitHandler {
         android.os.Process.killProcess(android.os.Process.myPid())
     }
