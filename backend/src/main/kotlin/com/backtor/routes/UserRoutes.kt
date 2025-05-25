@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import org.mindrot.jbcrypt.BCrypt
 import com.backtor.security.JwtService
 
+
 // Crea instancia del servicio
 val userService = UserService()
 val jwtService = JwtService
@@ -421,6 +422,53 @@ fun Route.userRoutes() {
                 }
 
             }
+            get("/courses") {
+                val email = call.getEmailFromToken()
+                if (email == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                    return@get
+                }
+
+                val courses = userService.getCoursesByUserEmail(email)
+                call.respond(HttpStatusCode.OK, courses)
+            }
+            post("/courses/add") {
+                val email = call.getEmailFromToken()
+                if (email == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                    return@post
+                }
+
+                val request = try {
+                    call.receive<Map<String, String>>()
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Formato de solicitud inválido"))
+                    return@post
+                }
+
+                val courseIdString = request["courseId"]
+                if (courseIdString.isNullOrEmpty()) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "courseId es requerido"))
+                    return@post
+                }
+
+                val courseId = try {
+                    courseIdString.toInt()
+                } catch (e: NumberFormatException) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "courseId inválido"))
+                    return@post
+                }
+
+
+                val success = userService.addCourseToUser(email, courseId)
+                if (success) {
+                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Curso agregado exitosamente"))
+                } else {
+                    call.respond(HttpStatusCode.Conflict, ApiResponse(false, "Ya estás inscrito en este curso o no existe"))
+                }
+            }
+
+
         }
     }
 }

@@ -18,6 +18,9 @@ import com.backtor.security.JwtService
 
 import com.backtor.models.UserTable
 import com.backtor.models.PasswordResetTable
+import com.backtor.models.UserCoursesTable
+import com.backtor.models.CourseTable
+import com.backtor.models.Course
 import org.mindrot.jbcrypt.BCrypt
 
 import java.time.LocalDateTime
@@ -447,7 +450,45 @@ class UserService {
             true
         }
     }
+    fun getUserProfileFromToken(token: String): UserProfile? {
+        val email = JwtService.verifyToken(token) ?: return null
+        return getUserProfile(email)
+    }
+    fun getCoursesByUserEmail(email: String): List<Course> {
+        return transaction {
+            val userId = UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.id] }
+                .firstOrNull() ?: return@transaction emptyList()
+            (UserCoursesTable innerJoin CourseTable)
+                .select { UserCoursesTable.userId eq userId }
+                .map {
+                    Course(
+                        id = it[CourseTable.id],
+                        title = it[CourseTable.title],
+                        description = it[CourseTable.description]
+                    )
+                }
+        }
+    }
+    fun addCourseToUser(email: String, courseId: Int): Boolean {
+        return transaction {
+            val userId = UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.id] }
+                .firstOrNull() ?: return@transaction false
 
+            val alreadyExists = UserCoursesTable
+                .select { (UserCoursesTable.userId eq userId) and (UserCoursesTable.courseId eq courseId) }
+                .count() > 0
 
+            if (alreadyExists) return@transaction false
 
+            UserCoursesTable.insert {
+                it[UserCoursesTable.userId] = userId
+                it[UserCoursesTable.courseId] = courseId
+            }
+            true
+        }
+    }
 }
