@@ -1,16 +1,18 @@
 package com.example.proyecto.data.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+@Serializable
 data class UserProfile(
     val email: String,
     val username: String,
     val streak: Int,
-    @SerializedName("lastActivity")
+    @SerialName("lastActivity")
     private val lastActivityStr: String,
-    @SerializedName("createdAt")
+    @SerialName("createdAt")
     private val createdAtStr: String
 ) {
     val lastActivity: LocalDateTime

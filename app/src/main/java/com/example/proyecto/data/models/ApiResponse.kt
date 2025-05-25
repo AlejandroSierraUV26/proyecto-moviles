@@ -1,19 +1,12 @@
 package com.example.proyecto.data.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
+@Serializable
 data class ApiResponse(
-    @SerializedName("success")
+    @SerialName("success")
     val success: Boolean,
-    @SerializedName("message")
+    @SerialName("message")
     val message: String
-)
-
-data class LoginResponse(
-    val token: String
-)
-
-data class RegisterResponse(
-    val message: String,
-    val token: String
 ) 

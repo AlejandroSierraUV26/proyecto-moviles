@@ -1,15 +1,6 @@
 package com.example.proyecto.ui.home
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.proyecto.utils.DoubleBackToExitHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,25 +8,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.proyecto.ui.courses.Course
-import com.example.proyecto.ui.courses.CoursesViewModel
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.proyecto.utils.DoubleBackToExitHandler
+import com.example.proyecto.ui.courses.CoursesViewModel
+import com.example.proyecto.data.models.Course
 
 @Composable
 fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
-    val courses by remember { derivedStateOf { viewModel.courses } }
-    val selectedCourse by remember { derivedStateOf { viewModel.selectedCourse } }
+    val userCourses by viewModel.userCourses.collectAsState()
+    val selectedCourse by viewModel.selectedCourse.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     
     DoubleBackToExitHandler {
-        // Cierra la aplicación
         android.os.Process.killProcess(android.os.Process.myPid())
     }
-
 
     Column(
         modifier = Modifier
@@ -44,21 +35,20 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            shape = MaterialTheme.shapes.medium
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = selectedCourse ?: "Selecciona un curso",
+                        text = selectedCourse?.title ?: "Selecciona un curso",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f)
                     )
 
-                    if (courses.isNotEmpty()) {
+                    if (userCourses.isNotEmpty()) {
                         IconButton(onClick = { expanded = !expanded }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
@@ -69,17 +59,17 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
                     }
                 }
 
-                if (expanded && courses.isNotEmpty()) {
+                if (expanded && userCourses.isNotEmpty()) {
                     Column {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        courses.forEach { courseName ->
+                        userCourses.forEach { course ->
                             Text(
-                                text = courseName,
+                                text = course.title,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        viewModel.selectCourse(courseName)
+                                        viewModel.selectCourse(course)
                                         expanded = false
                                     }
                                     .padding(8.dp)
@@ -96,7 +86,7 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
         selectedCourse?.let { course ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Box(
                     modifier = Modifier
@@ -105,7 +95,7 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Contenido $course",
+                        text = "Contenido ${course.title}",
                         style = MaterialTheme.typography.bodyLarge,
                         fontSize = 18.sp
                     )
@@ -133,9 +123,3 @@ private fun CourseItem(
             .padding(8.dp)
     )
 }
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    HomeScreen()
-} 

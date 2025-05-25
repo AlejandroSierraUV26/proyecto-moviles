@@ -6,6 +6,7 @@ import com.example.proyecto.data.models.LoginResponse
 import com.example.proyecto.data.models.RegisterResponse
 import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
+import com.example.proyecto.data.models.Course
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -35,4 +36,13 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Query("password") password: String
     ): ApiResponse
+
+    @GET("api/exams/courses")
+    suspend fun getAllCourses(): List<Course>
+
+    @GET("api/courses")
+    suspend fun getUserCourses(): List<Course>
+
+    @POST("api/courses/add")
+    suspend fun addCourseToUser(@Body request: Map<String, Int>)
 } 
