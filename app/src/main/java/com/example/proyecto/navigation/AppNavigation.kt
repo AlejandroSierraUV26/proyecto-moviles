@@ -18,6 +18,7 @@ import com.example.proyecto.ui.auth.RecuperScreen
 import com.example.proyecto.ui.auth.RegisterScreen
 import com.example.proyecto.ui.splash.SplashScreen
 import com.example.proyecto.ui.home.HomeScreen
+import com.example.proyecto.ui.home.HomeViewModel
 import com.example.proyecto.ui.courses.CoursesScreen
 import com.example.proyecto.ui.courses.CoursesViewModel
 import com.example.proyecto.ui.profile.ProfileScreen
@@ -40,7 +41,8 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val viewModel: CoursesViewModel = viewModel()
+    val coursesViewModel: CoursesViewModel = viewModel()
+    val homeViewModel: HomeViewModel = viewModel()
 
     Scaffold(
         topBar = {
@@ -81,10 +83,10 @@ fun AppNavigation() {
                 RegisterScreen(navController)
             }
             composable(AppScreens.HomeScreen.route) {
-                HomeScreen(viewModel = viewModel)
+                HomeScreen(viewModel = homeViewModel)
             }
             composable(AppScreens.CoursesScreen.route) {
-                CoursesScreen(navController = navController, viewModel = viewModel)
+                CoursesScreen(navController = navController, viewModel = coursesViewModel)
             }
             composable(AppScreens.CreateCourseScreen.route) {
                 CreateCoursesScreen()

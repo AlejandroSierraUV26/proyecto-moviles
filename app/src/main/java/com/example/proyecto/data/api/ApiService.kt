@@ -7,6 +7,7 @@ import com.example.proyecto.data.models.RegisterResponse
 import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
 import com.example.proyecto.data.models.Course
+import com.example.proyecto.data.models.Section
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -15,6 +16,7 @@ import retrofit2.http.PUT
 import retrofit2.http.DELETE
 import retrofit2.http.Header
 import retrofit2.http.Query
+import retrofit2.http.Path
 
 interface ApiService {
     @POST("api/register")
@@ -45,4 +47,7 @@ interface ApiService {
 
     @POST("api/courses/add")
     suspend fun addCourseToUser(@Body request: Map<String, Int>)
+
+    @GET("api/exams/sections/{courseId}")
+    suspend fun getSectionsByCourse(@Path("courseId") courseId: Int): Response<List<Section>>
 } 

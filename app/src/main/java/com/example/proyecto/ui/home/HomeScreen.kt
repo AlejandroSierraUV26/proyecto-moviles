@@ -15,13 +15,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyecto.utils.DoubleBackToExitHandler
-import com.example.proyecto.ui.courses.CoursesViewModel
 import com.example.proyecto.data.models.Course
+import com.example.proyecto.data.models.Section
 
 @Composable
-fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
+fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val userCourses by viewModel.userCourses.collectAsState()
     val selectedCourse by viewModel.selectedCourse.collectAsState()
+    val courseSections by viewModel.courseSections.collectAsState()
+    val error by viewModel.error.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     
     // Cargar los cursos cuando se inicia el HomeScreen
@@ -38,6 +40,7 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Card superior para selección de curso
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium
@@ -88,25 +91,85 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        selectedCourse?.let { course ->
+        // Mostrar error si existe
+        error?.let { errorMessage ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Lista de secciones del curso seleccionado
+        if (selectedCourse != null) {
+            if (courseSections.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
                 ) {
-                    Text(
-                        text = "Contenido ${course.title}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontSize = 18.sp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No hay secciones disponibles para este curso",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(courseSections) { section ->
+                        SectionCard(section = section)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionCard(section: Section) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = section.title,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Nivel de dificultad: ${getDifficultyText(section.difficultyLevel)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+private fun getDifficultyText(level: Int): String {
+    return when (level) {
+        1 -> "Fácil"
+        2 -> "Intermedio"
+        3 -> "Difícil"
+        else -> "Nivel $level"
     }
 }
 
