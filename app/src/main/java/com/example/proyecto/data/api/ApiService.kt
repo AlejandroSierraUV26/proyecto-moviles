@@ -49,6 +49,9 @@ interface ApiService {
     @POST("api/courses/add")
     suspend fun addCourseToUser(@Body request: Map<String, Int>)
 
+    @POST("api/courses/remove")
+    suspend fun removeCourseFromUser(@Body request: Map<String, Int>)
+
     @GET("api/exams/sections/{courseId}")
     suspend fun getSectionsByCourse(@Path("courseId") courseId: Int): Response<List<Section>>
 
