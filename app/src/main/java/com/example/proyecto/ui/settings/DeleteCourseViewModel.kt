@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.Course
+import com.example.proyecto.utils.SharedEvents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +44,8 @@ class DeleteCourseViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 RetrofitClient.apiService.removeCourseFromUser(mapOf("courseId" to courseId))
+                // Emitir el evento de eliminación
+                SharedEvents.emitCourseDeleted(courseId)
                 // Actualizar la lista de cursos después de eliminar
                 loadUserCourses()
                 _error.value = null

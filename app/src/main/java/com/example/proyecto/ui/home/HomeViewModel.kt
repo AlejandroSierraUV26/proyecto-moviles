@@ -7,6 +7,7 @@ import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
+import com.example.proyecto.utils.SharedEvents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,51 @@ class HomeViewModel : ViewModel() {
 
     init {
         loadUserCourses()
+        observeCourseDeletion()
+    }
+
+    private fun observeCourseDeletion() {
+        viewModelScope.launch {
+            SharedEvents.courseDeleted.collect { deletedCourseId ->
+                // Si el curso eliminado es el seleccionado, actualizar la selección
+                if (_selectedCourse.value?.id == deletedCourseId) {
+                    _selectedCourse.value = null
+                    _courseSections.value = emptyList()
+                    _sectionExams.value = emptyMap()
+                }
+                // Recargar la lista de cursos
+                loadUserCourses()
+            }
+        }
+    }
+
+    fun loadUserCourses() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val courses = RetrofitClient.apiService.getUserCourses()
+                _userCourses.value = courses
+                
+                // Si no hay curso seleccionado y hay cursos disponibles, seleccionar el primero
+                if (_selectedCourse.value == null && courses.isNotEmpty()) {
+                    _selectedCourse.value = courses.first()
+                    // Cargar las secciones del primer curso
+                    loadCourseSections(courses.first().id)
+                }
+                
+                _error.value = null
+            } catch (e: Exception) {
+                _error.value = "Error al cargar los cursos: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun selectCourse(course: Course) {
+        _selectedCourse.value = course
+        // Cargar las secciones del curso seleccionado
+        loadCourseSections(course.id)
     }
 
     fun clearState() {
@@ -44,34 +90,7 @@ class HomeViewModel : ViewModel() {
         _isLoading.value = false
     }
 
-    fun loadUserCourses() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                _error.value = null
-                Log.d("HomeViewModel", "Cargando cursos del usuario...")
-                val courses = RetrofitClient.apiService.getUserCourses()
-                Log.d("HomeViewModel", "Cursos cargados: ${courses.size}")
-                _userCourses.value = courses
-                if (courses.isNotEmpty() && _selectedCourse.value == null) {
-                    selectCourse(courses.first())
-                }
-            } catch (e: Exception) {
-                Log.e("HomeViewModel", "Error al cargar cursos: ${e.message}", e)
-                _error.value = "Error al cargar cursos: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun selectCourse(course: Course) {
-        Log.d("HomeViewModel", "Seleccionando curso: ${course.title} (ID: ${course.id})")
-        _selectedCourse.value = course
-        loadCourseSections(course.id)
-    }
-
-    private fun loadCourseSections(courseId: Int) {
+    fun loadCourseSections(courseId: Int) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
