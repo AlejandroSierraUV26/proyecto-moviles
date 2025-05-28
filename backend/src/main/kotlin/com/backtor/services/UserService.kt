@@ -491,4 +491,17 @@ class UserService {
             true
         }
     }
+    fun deleteCourseFromUser(email: String, courseId: Int): Boolean {
+        return transaction {
+            val userId = UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.id] }
+                .firstOrNull() ?: return@transaction false
+
+            val deletedRows = UserCoursesTable.deleteWhere {
+                (UserCoursesTable.userId eq userId) and (UserCoursesTable.courseId eq courseId)
+            }
+            deletedRows > 0
+        }
+    }
 }

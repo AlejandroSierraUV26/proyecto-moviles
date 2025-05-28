@@ -467,6 +467,40 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.Conflict, ApiResponse(false, "Ya estás inscrito en este curso o no existe"))
                 }
             }
+            post("/courses/remove") {
+                val email = call.getEmailFromToken()
+                if (email == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                    return@post
+                }
+
+                val request = try {
+                    call.receive<Map<String, String>>()
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Formato de solicitud inválido"))
+                    return@post
+                }
+
+                val courseIdString = request["courseId"]
+                if (courseIdString.isNullOrEmpty()) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "courseId es requerido"))
+                    return@post
+                }
+
+                val courseId = try {
+                    courseIdString.toInt()
+                } catch (e: NumberFormatException) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "courseId inválido"))
+                    return@post
+                }
+
+                val success = userService.deleteCourseFromUser(email, courseId)
+                if (success) {
+                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Curso eliminado exitosamente"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Curso no encontrado o no estás inscrito en él"))
+                }
+            }
 
 
         }
