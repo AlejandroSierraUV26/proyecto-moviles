@@ -41,12 +41,8 @@ fun SplashScreen(navController: NavHostController) {
             delay(2000)
             val token = securePreferences.getToken()
             if (token != null && token.isNotEmpty()) {
-                // Si hay un token guardado, intentar cargar los cursos antes de navegar
-                try {
-                    RetrofitClient.apiService.getUserCourses()
-                } catch (e: Exception) {
-                    // Ignorar errores al cargar cursos inicialmente
-                }
+                // Inicializar RetrofitClient antes de hacer cualquier llamada
+                RetrofitClient.initialize(context)
                 // Navegar a Home
                 navController.navigate(AppScreens.HomeScreen.route) {
                     popUpTo(0) { inclusive = true }

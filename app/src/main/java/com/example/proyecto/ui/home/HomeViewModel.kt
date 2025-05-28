@@ -24,13 +24,26 @@ class HomeViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     init {
         loadUserCourses()
+    }
+
+    fun clearState() {
+        _userCourses.value = emptyList()
+        _selectedCourse.value = null
+        _courseSections.value = emptyList()
+        _error.value = null
+        _isLoading.value = false
     }
 
     fun loadUserCourses() {
         viewModelScope.launch {
             try {
+                _isLoading.value = true
+                _error.value = null
                 Log.d("HomeViewModel", "Cargando cursos del usuario...")
                 val courses = RetrofitClient.apiService.getUserCourses()
                 Log.d("HomeViewModel", "Cursos cargados: ${courses.size}")
@@ -41,6 +54,8 @@ class HomeViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error al cargar cursos: ${e.message}", e)
                 _error.value = "Error al cargar cursos: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -54,6 +69,8 @@ class HomeViewModel : ViewModel() {
     private fun loadCourseSections(courseId: Int) {
         viewModelScope.launch {
             try {
+                _isLoading.value = true
+                _error.value = null
                 Log.d("HomeViewModel", "Cargando secciones para el curso ID: $courseId")
                 val response = RetrofitClient.apiService.getSectionsByCourse(courseId)
                 if (response.isSuccessful) {
@@ -69,6 +86,8 @@ class HomeViewModel : ViewModel() {
                 Log.e("HomeViewModel", "Error al cargar secciones: ${e.message}", e)
                 _error.value = "Error al cargar secciones: ${e.message}"
                 _courseSections.value = emptyList()
+            } finally {
+                _isLoading.value = false
             }
         }
     }

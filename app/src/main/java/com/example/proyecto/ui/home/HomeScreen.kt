@@ -24,6 +24,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val selectedCourse by viewModel.selectedCourse.collectAsState()
     val courseSections by viewModel.courseSections.collectAsState()
     val error by viewModel.error.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     
     // Cargar los cursos cuando se inicia el HomeScreen
@@ -40,31 +41,29 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Card superior para selección de curso
+        // Selector de cursos
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = !expanded },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = selectedCourse?.title ?: "Selecciona un curso",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f)
+                        style = MaterialTheme.typography.titleMedium
                     )
-
-                    if (userCourses.isNotEmpty()) {
-                        IconButton(onClick = { expanded = !expanded }) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = if (expanded) "Contraer" else "Expandir",
-                                modifier = Modifier.rotate(if (expanded) 180f else 0f)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = if (expanded) "Contraer" else "Expandir",
+                        modifier = Modifier.rotate(if (expanded) 180f else 0f)
+                    )
                 }
 
                 if (expanded && userCourses.isNotEmpty()) {
@@ -91,8 +90,18 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Mostrar error si existe
-        error?.let { errorMessage ->
+        // Mostrar loading si está cargando
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        // Mostrar error si existe y no está cargando
+        if (error != null && !isLoading) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -100,7 +109,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                 )
             ) {
                 Text(
-                    text = errorMessage,
+                    text = error!!,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(16.dp)
                 )
@@ -108,31 +117,19 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Lista de secciones del curso seleccionado
-        if (selectedCourse != null) {
-            if (courseSections.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Box(
+        // Mostrar secciones si hay un curso seleccionado y no está cargando
+        if (selectedCourse != null && !isLoading) {
+            LazyColumn {
+                items(courseSections) { section ->
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(vertical = 4.dp)
                     ) {
                         Text(
-                            text = "No hay secciones disponibles para este curso",
-                            style = MaterialTheme.typography.bodyLarge
+                            text = section.title,
+                            modifier = Modifier.padding(16.dp)
                         )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(courseSections) { section ->
-                        SectionCard(section = section)
                     }
                 }
             }

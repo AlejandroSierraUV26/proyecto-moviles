@@ -25,6 +25,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.utils.SecurePreferences
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.proyecto.ui.home.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +36,7 @@ fun TopBar(navController: NavController) {
     val context = LocalContext.current
     val securePreferences = SecurePreferences(context)
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val homeViewModel: HomeViewModel = viewModel()
 
     val title = when (currentRoute) {
         AppScreens.HomeScreen.route -> "Inicio"
@@ -57,6 +60,7 @@ fun TopBar(navController: NavController) {
             confirmButton = {
                 TextButton(
                     onClick = {
+                        homeViewModel.clearState()
                         securePreferences.clearSession()
                         navController.navigate(AppScreens.LoginScreen.route) {
                             popUpTo(0) { inclusive = true }

@@ -19,36 +19,42 @@ object RetrofitClient {
     private val contentType = "application/json".toMediaTypeOrNull() ?: throw IllegalStateException("No se pudo crear el MediaType")
 
     private lateinit var securePreferences: SecurePreferences
+    private var retrofit: Retrofit? = null
 
     fun initialize(context: Context) {
         securePreferences = SecurePreferences(context)
+        createRetrofitInstance()
     }
 
-    private val authInterceptor = object : Interceptor {
-        @Throws(IOException::class)
-        override fun intercept(chain: Interceptor.Chain): Response {
-            val token = securePreferences.getToken()
-            val request = chain.request().newBuilder()
-            if (token != null) {
-                request.addHeader("Authorization", "Bearer $token")
+    private fun createRetrofitInstance() {
+        val authInterceptor = object : Interceptor {
+            @Throws(IOException::class)
+            override fun intercept(chain: Interceptor.Chain): Response {
+                val token = securePreferences.getToken()
+                val request = chain.request().newBuilder()
+                if (token != null) {
+                    request.addHeader("Authorization", "Bearer $token")
+                }
+                return chain.proceed(request.build())
             }
-            return chain.proceed(request.build())
         }
-    }
 
-    private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor)
-        .build()
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .build()
 
-    private val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
+        retrofit = Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
     }
 
-    val apiService: ApiService by lazy {
-        retrofit.create(ApiService::class.java)
-    }
+    val apiService: ApiService
+        get() {
+            if (retrofit == null) {
+                throw IllegalStateException("RetrofitClient no ha sido inicializado. Llama a initialize() primero.")
+            }
+            return retrofit!!.create(ApiService::class.java)
+        }
 } 
