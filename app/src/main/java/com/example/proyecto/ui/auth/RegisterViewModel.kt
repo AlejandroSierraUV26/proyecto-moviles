@@ -28,6 +28,9 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
                 if (response.isSuccessful) {
                     val registerResponse = response.body()
                     if (registerResponse != null) {
+                        // Primero limpiamos la sesión anterior
+                        securePreferences.clearSession()
+                        // Luego guardamos el nuevo token y email
                         securePreferences.saveToken(registerResponse.token)
                         securePreferences.saveUserEmail(email)
                         _registerState.value = RegisterState.Success(registerResponse.message)
