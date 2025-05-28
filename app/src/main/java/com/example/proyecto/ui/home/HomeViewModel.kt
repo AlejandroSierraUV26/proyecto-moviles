@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
+import com.example.proyecto.data.models.Exam
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,9 @@ class HomeViewModel : ViewModel() {
     private val _courseSections = MutableStateFlow<List<Section>>(emptyList())
     val courseSections: StateFlow<List<Section>> = _courseSections.asStateFlow()
 
+    private val _sectionExams = MutableStateFlow<Map<Int, List<Exam>>>(emptyMap())
+    val sectionExams: StateFlow<Map<Int, List<Exam>>> = _sectionExams.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -35,6 +39,7 @@ class HomeViewModel : ViewModel() {
         _userCourses.value = emptyList()
         _selectedCourse.value = null
         _courseSections.value = emptyList()
+        _sectionExams.value = emptyMap()
         _error.value = null
         _isLoading.value = false
     }
@@ -86,6 +91,33 @@ class HomeViewModel : ViewModel() {
                 Log.e("HomeViewModel", "Error al cargar secciones: ${e.message}", e)
                 _error.value = "Error al cargar secciones: ${e.message}"
                 _courseSections.value = emptyList()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadExamsForSection(sectionId: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+                Log.d("HomeViewModel", "Solicitando exámenes para la sección ID: $sectionId")
+                val response = RetrofitClient.apiService.getExamsBySection(sectionId)
+                Log.d("HomeViewModel", "Respuesta de exámenes: ${response.code()} - ${response.message()}")
+                if (response.isSuccessful) {
+                    val exams = response.body() ?: emptyList()
+                    Log.d("HomeViewModel", "Exámenes recibidos: ${exams.size}")
+                    _sectionExams.value = _sectionExams.value.toMutableMap().apply {
+                        put(sectionId, exams)
+                    }
+                } else {
+                    Log.e("HomeViewModel", "Error al cargar exámenes: ${response.code()} - ${response.message()}")
+                    _error.value = "Error al cargar exámenes: ${response.message()}"
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error al cargar exámenes: ${e.message}", e)
+                _error.value = "Error al cargar exámenes: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
