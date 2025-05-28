@@ -132,10 +132,9 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                             expandedSections = if (expandedSections.contains(section.id)) {
                                 expandedSections - section.id
                             } else {
-                                expandedSections + section.id
-                            }
-                            if (!expandedSections.contains(section.id)) {
-                                viewModel.loadExamsForSection(section.id)
+                                (expandedSections + section.id).also {
+                                    viewModel.loadExamsForSection(section.id)
+                                }
                             }
                         }
                     )
