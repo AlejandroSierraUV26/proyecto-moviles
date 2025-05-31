@@ -25,6 +25,9 @@ import com.patrykandpatrick.vico.core.entry.entryModelOf
 import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.ExperienceData
 import kotlinx.coroutines.launch
+import com.patrykandpatrick.vico.core.axis.AxisPosition
+import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 
 @Composable
 fun ProfileScreen() {
@@ -151,11 +154,23 @@ fun ProfileScreen() {
                     else -> {
                         // Gráfica de líneas usando Vico con datos reales
                         val experiencePoints = experienceData.map { it.experiencePoints.toFloat() }.toTypedArray()
+                        val daysOfWeek = experienceData.map { it.dayOfWeek }.toTypedArray()
+                        
+                        val bottomAxis = rememberBottomAxis(
+                            valueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+                                if (value.toInt() in daysOfWeek.indices) {
+                                    daysOfWeek[value.toInt()].take(3)
+                                } else {
+                                    ""
+                                }
+                            }
+                        )
+                        
                         Chart(
                             chart = lineChart(),
                             model = entryModelOf(*experiencePoints),
                             startAxis = rememberStartAxis(),
-                            bottomAxis = rememberBottomAxis()
+                            bottomAxis = bottomAxis
                         )
                     }
                 }
