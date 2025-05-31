@@ -364,6 +364,20 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.OK, ApiResponse(true, "Usuario eliminado"))
                 }
             }
+            get("/streak") {
+                val email = call.getEmailFromToken()
+
+                if (email == null) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
+                    return@get
+                }
+                val streak = userService.getStreak(email)
+                if (streak == null) {
+                    call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+                } else {
+                    call.respond(HttpStatusCode.OK, mapOf("streak" to streak))
+                }
+            }
             put("/streak/update") {
                 val email = call.getEmailFromToken()
 
