@@ -4,6 +4,7 @@ import com.backtor.models.UserRegisterRequest
 import com.backtor.models.UserLoginRequest
 import com.backtor.models.ApiResponse
 import com.backtor.services.UserService
+import com.backtor.models.ExperienceTotalResponse
 
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.auth.authenticate
@@ -399,6 +400,24 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak reseteado"))
                 }
             }
+            get("/experience") {
+                val email = call.getEmailFromToken()
+                if (email == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ExperienceTotalResponse(false, "Token inválido o expirado", 0))
+                    return@get
+                }
+
+                val user = userService.getUserProfile(email)
+                if (user == null) {
+                    call.respond(HttpStatusCode.NotFound, ExperienceTotalResponse(false, "Usuario no encontrado", 0))
+                    return@get
+                }
+
+                val totalExperience = user.experienceTotal
+
+                call.respond(HttpStatusCode.OK, ExperienceTotalResponse(true, "Experiencia total obtenida correctamente", totalExperience))
+            }
+
             put("/experience/update") {
                 val email = call.getEmailFromToken()
                 val request = try {
@@ -407,20 +426,45 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Datos inválidos"))
                     return@put
                 }
+
                 val score = request["score"]?.toIntOrNull()
+
                 if (email == null) {
                     call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
                     return@put
                 }
+
                 val user = userService.getUserProfile(email)
                 if (user == null) {
                     call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
                 } else {
-                    userService.updateExperience(email, score ?: 0)
-                    userService.addExperience(email, score ?: 0)
-                    call.respond(HttpStatusCode.OK, ApiResponse(true, "Experiencia actualizada"))
+                    if (score == null || score <= 0) {
+                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Puntaje inválido"))
+                        return@put
+                    }
+
+                    val success = userService.addExperience(email, score)
+                    if (success) {
+                        call.respond(HttpStatusCode.OK, ApiResponse(true, "Experiencia actualizada"))
+                    } else {
+                        call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar experiencia"))
+                    }
+                }
+            }
+            get("/experience/last7") {
+                val email = call.getEmailFromToken()
+
+                if (email == null) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email requerido"))
+                    return@get
                 }
 
+                val experienceData = userService.getLast7DaysExperience(email)
+                if (experienceData == null) {
+                    call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
+                } else {
+                    call.respond(HttpStatusCode.OK, experienceData)
+                }
             }
             get("/courses") {
                 val email = call.getEmailFromToken()

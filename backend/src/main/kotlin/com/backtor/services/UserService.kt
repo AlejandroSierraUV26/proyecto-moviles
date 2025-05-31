@@ -4,6 +4,8 @@ import com.backtor.models.UserLoginRequest
 import com.backtor.models.UserRegisterRequest
 import com.backtor.models.UserProfile
 import com.backtor.models.UserExperienceTable
+import com.backtor.models.ExperienceDTO
+
 
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
@@ -13,6 +15,9 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.or
+import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.javatime.dateLiteral
+
 
 import com.backtor.security.JwtService
 
@@ -161,38 +166,38 @@ class UserService {
             // Obtener el usuario y su última fecha de actividad
             val userData = UserTable
                 .select { UserTable.email eq email }
-                .map { 
+                .map {
                     Pair(
-                        it[UserTable.streak], 
+                        it[UserTable.streak],
                         it[UserTable.lastActiveDate].toLocalDate()
                     )
                 }
                 .firstOrNull() ?: return@transaction false
-    
+
             val (currentStreak, lastActiveDate) = userData
             val today = LocalDateTime.now().toLocalDate()
-    
+
             // Verificar si ya actualizó hoy
             if (lastActiveDate == today) {
                 return@transaction false
             }
-    
+
             // Verificar si es un día consecutivo (para mantener el streak)
             val isConsecutiveDay = lastActiveDate.plusDays(1) == today
-            
+
             val newStreak = if (isConsecutiveDay) {
                 currentStreak + 1
             } else {
                 // Si no es consecutivo, reiniciar a 1
                 1
             }
-    
+
             // Actualizar el streak y la última fecha de actividad
             val updatedRows = UserTable.update({ UserTable.email eq email }) {
                 it[UserTable.streak] = newStreak
                 it[UserTable.lastActiveDate] = LocalDateTime.now()
             }
-            
+
             updatedRows > 0
         }
     }
@@ -244,7 +249,7 @@ class UserService {
         return transaction {
             val userByEmail = UserTable.select { UserTable.email eq identifier }.firstOrNull()
             val userByUsername = UserTable.select { UserTable.username eq identifier }.firstOrNull()
-            
+
             val user = userByEmail ?: userByUsername
             user?.get(UserTable.passwordHash)
         }
@@ -388,48 +393,58 @@ class UserService {
             null
         }
     }
-    fun addExperience(email: String, points: Int): Boolean {
+        fun addExperience(email: String, points: Int): Boolean {
         return transaction {
             val user = UserTable.select { UserTable.email eq email }.firstOrNull() ?: return@transaction false
             val userId = user[UserTable.id]
             val today = LocalDate.now()
 
-            // Buscar si ya existe un registro para hoy
+            // Verificar si ya existe un registro de experiencia para hoy
             val todayExp = UserExperienceTable
-                .select { (UserExperienceTable.userId eq userId) and (UserExperienceTable.collectedAt.date() eq org.jetbrains.exposed.sql.javatime.dateLiteral(today)) }
+                .select {
+                    (UserExperienceTable.userId eq userId) and
+                            (UserExperienceTable.collectedAt.date() eq org.jetbrains.exposed.sql.javatime.dateLiteral(today))
+                }
                 .firstOrNull()
 
             if (todayExp != null) {
-                // Sumar puntos al registro existente
+                // Sumar puntos al registro existente de hoy
                 UserExperienceTable.update({ UserExperienceTable.id eq todayExp[UserExperienceTable.id] }) {
                     it[experiencePoints] = todayExp[UserExperienceTable.experiencePoints] + points
                     it[collectedAt] = LocalDateTime.now()
                 }
             } else {
-                // Obtener los últimos 7 registros de experiencia
-                val last7 = UserExperienceTable
-                    .select { UserExperienceTable.userId eq userId }
-                    .orderBy(UserExperienceTable.collectedAt to org.jetbrains.exposed.sql.SortOrder.DESC)
-                    .limit(7)
-                    .toList()
-
-                // Si ya hay 7, elimina el más antiguo
-                if (last7.size == 7) {
-                    val oldest = last7.minByOrNull { it[UserExperienceTable.collectedAt] }
-                    if (oldest != null) {
-                        UserExperienceTable.deleteWhere { UserExperienceTable.id eq oldest[UserExperienceTable.id] }
-                    }
-                }
-
-                // Insertar el nuevo registro de experiencia
+                // Insertar nuevo registro
                 UserExperienceTable.insert {
                     it[UserExperienceTable.userId] = userId
                     it[experiencePoints] = points
                     it[collectedAt] = LocalDateTime.now()
                 }
+
+                // Verificar los días distintos registrados y mantener solo los últimos 7
+                val distinctDates = UserExperienceTable
+                    .select { UserExperienceTable.userId eq userId }
+                    .map { it[UserExperienceTable.collectedAt].toLocalDate() }
+                    .distinct()
+                    .sortedDescending()
+
+                if (distinctDates.size > 7) {
+                    val cutoffDate = distinctDates[7]
+
+                    val rowsToDelete = UserExperienceTable
+                        .select { UserExperienceTable.userId eq userId }
+                        .filter {
+                            it[UserExperienceTable.collectedAt].toLocalDate() < cutoffDate
+                        }
+
+                    rowsToDelete.forEach { row ->
+                        UserExperienceTable.deleteWhere { UserExperienceTable.id eq row[UserExperienceTable.id] }
+                    }
+
+                }
             }
 
-            // Actualizar experiencia total
+            // Actualizar experiencia total acumulada
             UserTable.update({ UserTable.id eq userId }) {
                 it[experienceTotal] = user[UserTable.experienceTotal] + points
             }
@@ -437,19 +452,39 @@ class UserService {
             true
         }
     }
-    fun updateExperience(email: String, points: Int): Boolean {
+    fun getTotalExperience(email: String): Int? {
         return transaction {
-            val user = UserTable.select { UserTable.email eq email }.firstOrNull() ?: return@transaction false
-            val userId = user[UserTable.id]
-
-            // Actualizar experiencia total
-            UserTable.update({ UserTable.id eq userId }) {
-                it[experienceTotal] = points
-            }
-
-            true
+            UserTable
+                .slice(UserTable.experienceTotal)
+                .select { UserTable.email eq email }
+                .map { it[UserTable.experienceTotal] }
+                .firstOrNull()
         }
     }
+
+    fun getLast7DaysExperience(email: String): List<ExperienceDTO>? {
+        return transaction {
+            val user = UserTable.select { UserTable.email eq email }.firstOrNull() ?: return@transaction null
+            val userId = user[UserTable.id]
+
+            UserExperienceTable
+                .select { UserExperienceTable.userId eq userId }
+                .orderBy(UserExperienceTable.collectedAt to SortOrder.DESC)
+                .limit(7)
+                .map { row ->
+                    val date = row[UserExperienceTable.collectedAt].toLocalDate()
+                    ExperienceDTO(
+                        date = date.toString(),
+                        dayOfWeek = date.dayOfWeek.toString().lowercase()
+                            .replaceFirstChar { it.titlecase() },
+                        experiencePoints = row[UserExperienceTable.experiencePoints]
+                    )
+                }
+                .sortedBy { it.date } // ordenar ascendente para gráfico
+                .toList()  // fuerza una lista serializable normal
+        }
+    }
+
     fun getUserProfileFromToken(token: String): UserProfile? {
         val email = JwtService.verifyToken(token) ?: return null
         return getUserProfile(email)
