@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import com.patrykandpatrick.vico.core.axis.AxisPosition
 import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import kotlinx.coroutines.delay
 
 @Composable
 fun ProfileScreen() {
