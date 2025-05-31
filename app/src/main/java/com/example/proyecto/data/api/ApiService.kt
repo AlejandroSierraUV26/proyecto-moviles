@@ -9,6 +9,8 @@ import com.example.proyecto.data.models.ApiResponse
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
+import com.example.proyecto.data.models.ExperienceData
+import com.example.proyecto.data.models.ExperienceTotalResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -57,4 +59,10 @@ interface ApiService {
 
     @GET("api/exams/by-section/{sectionId}")
     suspend fun getExamsBySection(@Path("sectionId") sectionId: Int): Response<List<Exam>>
+
+    @GET("api/experience")
+    suspend fun getUserExperience(): ExperienceTotalResponse
+
+    @GET("api/experience/last7")
+    suspend fun getLast7DaysExperience(): List<ExperienceData>
 } 

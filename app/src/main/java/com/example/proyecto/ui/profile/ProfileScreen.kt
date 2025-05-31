@@ -5,7 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,9 +22,39 @@ import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.line.lineChart
 import com.patrykandpatrick.vico.core.entry.entryModelOf
+import com.example.proyecto.data.api.RetrofitClient
+import com.example.proyecto.data.models.ExperienceData
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen() {
+    var experienceData by remember { mutableStateOf<List<ExperienceData>>(emptyList()) }
+    var totalExperience by remember { mutableStateOf(0) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Cargar datos de experiencia
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                // Obtener experiencia total
+                val experienceResponse = RetrofitClient.apiService.getUserExperience()
+                if (experienceResponse.success) {
+                    totalExperience = experienceResponse.totalExperience
+                }
+
+                // Obtener datos de los últimos 7 días
+                val last7DaysResponse = RetrofitClient.apiService.getLast7DaysExperience()
+                experienceData = last7DaysResponse
+                isLoading = false
+            } catch (e: Exception) {
+                error = e.message
+                isLoading = false
+            }
+        }
+    }
+
     DoubleBackToExitHandler {
         android.os.Process.killProcess(android.os.Process.myPid())
     }
@@ -81,7 +111,7 @@ fun ProfileScreen() {
             // Tarjeta de Experiencia
             StatCard(
                 title = "Experiencia",
-                value = "1,250 XP",
+                value = "$totalExperience XP",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -105,13 +135,30 @@ fun ProfileScreen() {
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Gráfica de líneas usando Vico
-                Chart(
-                    chart = lineChart(),
-                    model = entryModelOf(0f, 2f, 4f, 6f, 8f, 10f, 12f),
-                    startAxis = rememberStartAxis(),
-                    bottomAxis = rememberBottomAxis()
-                )
+                when {
+                    isLoading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
+                    error != null -> {
+                        Text(
+                            text = "Error al cargar los datos: $error",
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
+                    else -> {
+                        // Gráfica de líneas usando Vico con datos reales
+                        val experiencePoints = experienceData.map { it.experiencePoints.toFloat() }.toTypedArray()
+                        Chart(
+                            chart = lineChart(),
+                            model = entryModelOf(*experiencePoints),
+                            startAxis = rememberStartAxis(),
+                            bottomAxis = rememberBottomAxis()
+                        )
+                    }
+                }
             }
         }
     }
