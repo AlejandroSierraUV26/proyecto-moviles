@@ -4,6 +4,7 @@ import com.backtor.models.UserRegisterRequest
 import com.backtor.models.UserLoginRequest
 import com.backtor.models.ApiResponse
 import com.backtor.services.UserService
+import com.backtor.models.ExperienceTotalResponse
 
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.auth.authenticate
@@ -399,6 +400,24 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.OK, ApiResponse(true, "Streak reseteado"))
                 }
             }
+            get("/experience") {
+                val email = call.getEmailFromToken()
+                if (email == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ExperienceTotalResponse(false, "Token inválido o expirado", 0))
+                    return@get
+                }
+
+                val user = userService.getUserProfile(email)
+                if (user == null) {
+                    call.respond(HttpStatusCode.NotFound, ExperienceTotalResponse(false, "Usuario no encontrado", 0))
+                    return@get
+                }
+
+                val totalExperience = user.experienceTotal
+
+                call.respond(HttpStatusCode.OK, ExperienceTotalResponse(true, "Experiencia total obtenida correctamente", totalExperience))
+            }
+
             put("/experience/update") {
                 val email = call.getEmailFromToken()
                 val request = try {

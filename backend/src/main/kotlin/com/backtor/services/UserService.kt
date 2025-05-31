@@ -452,6 +452,16 @@ class UserService {
             true
         }
     }
+    fun getTotalExperience(email: String): Int? {
+        return transaction {
+            UserTable
+                .slice(UserTable.experienceTotal)
+                .select { UserTable.email eq email }
+                .map { it[UserTable.experienceTotal] }
+                .firstOrNull()
+        }
+    }
+
     fun getLast7DaysExperience(email: String): List<ExperienceDTO>? {
         return transaction {
             val user = UserTable.select { UserTable.email eq email }.firstOrNull() ?: return@transaction null
