@@ -170,7 +170,14 @@ class UserService {
         }
     }
 
-
+    fun getStreak(email: String): Int? {
+        return transaction {
+            UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.streak] }
+                .firstOrNull()
+        }
+    }
     fun updateStreak(email: String): Boolean {
         return transaction {
             // Obtener el usuario y su última fecha de actividad
