@@ -18,6 +18,7 @@ object UserTable : Table("users") {
     val lastActiveDate = datetime("last_active_date")
     val createdAt = datetime("created_at")
     val experienceTotal = integer("experience_total").default(0)
+    val profileImageUrl = varchar("profile_image_url", 255).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }
