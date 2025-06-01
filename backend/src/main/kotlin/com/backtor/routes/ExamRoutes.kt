@@ -7,6 +7,8 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+import io.ktor.server.auth.*
+import com.backtor.security.JwtService
 
 fun Route.examRoutes() {
     val examService = ExamService()
@@ -113,10 +115,33 @@ fun Route.examRoutes() {
             if (deleted) call.respond(HttpStatusCode.OK) else call.respond(HttpStatusCode.NotFound)
         }
         // ENVÍO DE RESPUESTAS PARA EVALUAR EXAMEN
+        // PROGRESO DEL USUARIO
+        authenticate("auth-jwt") {
+            get("/progress/{courseId}") {
+                val email = call.getEmailFromToken() ?: return@get call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(false, "No autorizado")
+                )
+
+                val courseId = call.parameters["courseId"]?.toIntOrNull() ?: return@get call.respond(
+                    HttpStatusCode.BadRequest,
+                    ApiResponse(false, "ID de curso inválido")
+                )
+
+                val progress = examService.getCourseProgress(email, courseId)
+                call.respond(HttpStatusCode.OK, progress)
+            }
+        }
         post("/submit") {
+            val token = call.request.headers["Authorization"]?.removePrefix("Bearer ")?.trim()
+            val email = JwtService.verifyToken(token ?: "") ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
             val submission = call.receive<ExamSubmission>()
             val result = examService.evaluateExam(submission)
-            call.respond(HttpStatusCode.OK, result)
+            val saved = examService.saveExamProgress(email, submission, result)
+
+            if (saved) call.respond(result)
+            else call.respond(HttpStatusCode.InternalServerError, "No se pudo guardar el progreso")
         }
     }
 }

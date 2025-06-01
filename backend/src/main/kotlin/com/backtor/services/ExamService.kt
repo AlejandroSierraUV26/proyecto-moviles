@@ -4,6 +4,7 @@ import com.backtor.models.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.time.LocalDateTime
 
 class ExamService {
     // ─────────────── CURSOS ───────────────
@@ -204,5 +205,163 @@ class ExamService {
         val total = feedbackList.size
         val percentage = if (total > 0) (correct * 100) / total else 0
         ExamFeedbackResult(feedbackList, correct, total, percentage)
+    }
+
+    // ─────────────── PROGRESO DEL USUARIO ───────────────
+    fun saveExamProgress(email: String, submission: ExamSubmission, result: ExamFeedbackResult): Boolean = transaction {
+        val userId = UserTable
+            .select { UserTable.email eq email }
+            .map { it[UserTable.id] }
+            .firstOrNull() ?: return@transaction false
+
+        val existingProgress = UserExamProgressTable
+            .select {
+                (UserExamProgressTable.userId eq userId) and
+                        (UserExamProgressTable.examId eq submission.examId)
+            }
+            .firstOrNull()
+
+        val scorePercentage = result.percentage
+        val isCompleted = scorePercentage >= 70 || (existingProgress?.get(UserExamProgressTable.completed) == true)
+
+        if (existingProgress == null) {
+            UserExamProgressTable.insert {
+                it[UserExamProgressTable.userId] = userId
+                it[UserExamProgressTable.examId] = submission.examId
+                it[UserExamProgressTable.questionsAnswered] = result.total
+                it[UserExamProgressTable.questionsCorrect] = result.correct
+                it[UserExamProgressTable.completed] = isCompleted
+                it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                it[UserExamProgressTable.bestScore] = scorePercentage
+            }
+        } else {
+            UserExamProgressTable.update({
+                (UserExamProgressTable.userId eq userId) and
+                        (UserExamProgressTable.examId eq submission.examId)
+            }) {
+                it[UserExamProgressTable.questionsAnswered] = existingProgress[UserExamProgressTable.questionsAnswered] + result.total
+                it[UserExamProgressTable.questionsCorrect] = existingProgress[UserExamProgressTable.questionsCorrect] + result.correct
+                it[UserExamProgressTable.completed] = isCompleted
+                it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                it[UserExamProgressTable.bestScore] = maxOf(existingProgress[UserExamProgressTable.bestScore], scorePercentage)
+            }
+        }
+
+        updateCourseProgress(userId, submission.examId)
+        true
+    }
+
+    private fun updateCourseProgress(userId: Int, examId: Int) = transaction {
+        // Obtener el curso asociado a este examen
+        val courseId = (ExamTable innerJoin SectionTable)
+            .select { ExamTable.id eq examId }
+            .map { it[SectionTable.courseId] }
+            .firstOrNull() ?: return@transaction
+
+        // Obtener todas las secciones del curso
+        val sections = SectionTable
+            .select { SectionTable.courseId eq courseId }
+            .map { it[SectionTable.id] }
+
+        // Obtener todos los exámenes del curso
+        val exams = ExamTable
+            .select { ExamTable.sectionId inList sections }
+            .map { it[ExamTable.id] }
+
+        // Calcular progreso del curso
+        val progress = calculateCourseProgress(userId, exams)
+
+        // Actualizar o insertar en user_courses
+        val existingRecord = UserCoursesTable
+            .select {
+                (UserCoursesTable.userId eq userId) and
+                        (UserCoursesTable.courseId eq courseId)
+            }
+            .firstOrNull()
+
+        if (existingRecord == null) {
+            UserCoursesTable.insert {
+                it[UserCoursesTable.userId] = userId
+                it[UserCoursesTable.courseId] = courseId
+                it[progressPercentage] = progress
+            }
+        } else {
+            UserCoursesTable.update({
+                (UserCoursesTable.userId eq userId) and
+                        (UserCoursesTable.courseId eq courseId)
+            }) {
+                it[progressPercentage] = progress
+            }
+        }
+    }
+
+    private fun calculateCourseProgress(userId: Int, examIds: List<Int>): Int = transaction {
+        if (examIds.isEmpty()) return@transaction 0
+
+        // Obtener el progreso de todos los exámenes del curso
+        val examProgresses = UserExamProgressTable
+            .select {
+                (UserExamProgressTable.userId eq userId) and
+                        (UserExamProgressTable.examId inList examIds)
+            }
+            .map { it[UserExamProgressTable.examId] to it[UserExamProgressTable.completed] }
+
+        // Calcular porcentaje de exámenes completados
+        val completedExams = examProgresses.count { it.second }
+        val totalExams = examIds.size
+
+        ((completedExams * 100) / totalExams).coerceIn(0, 100)
+    }
+
+    fun getCourseProgress(email: String, courseId: Int): CourseProgressResponse = transaction {
+        val userId = UserTable
+            .select { UserTable.email eq email }
+            .map { it[UserTable.id] }
+            .firstOrNull() ?: return@transaction CourseProgressResponse(0, emptyList())
+
+        // Obtener todas las secciones del curso
+        val sections = SectionTable
+            .select { SectionTable.courseId eq courseId }
+            .map { sectionRow ->
+                val sectionId = sectionRow[SectionTable.id]
+
+                // Obtener todos los exámenes de esta sección
+                val exams = ExamTable
+                    .select { ExamTable.sectionId eq sectionId }
+                    .map { examRow ->
+                        val examId = examRow[ExamTable.id]
+
+                        // Obtener progreso del usuario para este examen
+                        val progress = UserExamProgressTable
+                            .select {
+                                (UserExamProgressTable.userId eq userId) and
+                                        (UserExamProgressTable.examId eq examId)
+                            }
+                            .firstOrNull()
+
+                        ExamProgress(
+                            examId = examId,
+                            title = examRow[ExamTable.title],
+                            completed = progress?.get(UserExamProgressTable.completed) ?: false,
+                            bestScore = progress?.get(UserExamProgressTable.bestScore) ?: 0,
+                            lastAttemptDate = progress?.get(UserExamProgressTable.lastAttemptDate)?.let { LocalDateTimeWrapper(it) }
+                        )
+                    }
+
+                SectionProgress(
+                    sectionId = sectionId,
+                    title = sectionRow[SectionTable.title],
+                    exams = exams,
+                    completedExams = exams.count { it.completed },
+                    totalExams = exams.size
+                )
+            }
+
+        // Calcular progreso general del curso
+        val totalCompletedExams = sections.sumOf { it.completedExams }
+        val totalExams = sections.sumOf { it.totalExams }
+        val courseProgress = if (totalExams > 0) (totalCompletedExams * 100) / totalExams else 0
+
+        CourseProgressResponse(courseProgress, sections)
     }
 }
