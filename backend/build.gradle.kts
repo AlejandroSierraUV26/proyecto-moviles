@@ -56,6 +56,9 @@ dependencies {
     implementation("io.ktor:ktor-server-auth:2.3.7")
     implementation("io.ktor:ktor-server-auth-jwt:2.3.7")
 
+    //Cloudinary
+    //implementation("com.cloudinary:kotlin-url-gen:1.7.0")
+    implementation("com.cloudinary:cloudinary-http44:1.37.0")
 
 }
 

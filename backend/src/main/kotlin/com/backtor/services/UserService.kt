@@ -45,9 +45,67 @@ import java.time.LocalDate
 import org.jetbrains.exposed.sql.CustomFunction
 
 import org.jetbrains.exposed.sql.javatime.JavaLocalDateColumnType
+import io.ktor.http.content.PartData
+
+
 fun Expression<LocalDateTime>.date(): Expression<LocalDate> =
     CustomFunction("DATE", JavaLocalDateColumnType(), this)
 class UserService {
+    private val cloudinaryService: CloudinaryService = CloudinaryService()
+        suspend fun uploadProfileImage(email: String, file: PartData.FileItem): String? {
+            return try {
+                val imageUrl = cloudinaryService.uploadImage(file)
+
+                if (imageUrl != null) {
+                    transaction {
+                        UserTable.update({ UserTable.email eq email }) {
+                            it[profileImageUrl] = imageUrl
+                        }
+                    }
+                }
+                imageUrl
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+        fun deleteProfileImage(email: String): Boolean {
+            return transaction {
+                val currentUrl = UserTable
+                    .select { UserTable.email eq email }
+                    .map { it[UserTable.profileImageUrl] }
+                    .firstOrNull()
+                if (currentUrl != null) {
+                    cloudinaryService.deleteImageByUrl(currentUrl)
+                }
+                val updatedRows = UserTable.update({ UserTable.email eq email }) {
+                    it[profileImageUrl] = null
+                }
+                updatedRows > 0
+            }
+        }
+    suspend fun updateProfileImage(email: String, file: PartData.FileItem): String? {
+        // 1. Obtener la URL actual de la imagen
+        val currentImageUrl = getProfileImageUrl(email)
+        // 2. Eliminar imagen anterior si existe
+        if (!currentImageUrl.isNullOrEmpty()) {
+            try {
+                cloudinaryService.deleteImageByUrl(currentImageUrl)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        val newImageUrl = uploadProfileImage(email, file)
+        return newImageUrl
+    }
+    fun getProfileImageUrl(email: String): String? {
+            return transaction {
+                UserTable
+                    .select { UserTable.email eq email }
+                    .map { it[UserTable.profileImageUrl] }
+                    .firstOrNull()
+            }
+        }
     fun saveUser(user: UserRegisterRequest): UserRegisterRequest {
         val hashedPassword = BCrypt.hashpw(user.password, BCrypt.gensalt())
         transaction {

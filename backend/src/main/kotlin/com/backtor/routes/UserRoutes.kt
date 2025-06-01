@@ -12,16 +12,19 @@ import io.ktor.server.plugins.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.routing.*
 import io.ktor.server.http.content.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Contextual
 
 import io.ktor.server.auth.*
-
-
+import io.ktor.http.content.PartData
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
+import io.ktor.http.content.*
+
 
 import io.ktor.server.application.*
 import kotlinx.coroutines.launch
@@ -223,13 +226,110 @@ fun Route.userRoutes() {
             }
         }
         authenticate("auth-jwt") {
+            route("/profile/image") {
+                @Serializable
+                data class ImageUploadResponse(
+                    val success: Boolean,
+                    val message: String,
+                    val imageUrl: String
+                )
+                post {
+                    val email = call.getEmailFromToken()
+                    if (email == null) {
+                        call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                        return@post
+                    }
+                    try {
+                        val multipart = call.receiveMultipart()
+                        var imageUrl: String? = null
+
+                        multipart.forEachPart { part ->
+                            when (part) {
+                                is PartData.FileItem -> {
+                                    imageUrl = userService.uploadProfileImage(email, part)
+                                    part.dispose()
+                                }
+                                else -> part.dispose()
+                            }
+                        }
+                        if (imageUrl == null) {
+                            call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "No se proporcionó una imagen válida"))
+                            return@post
+                        }
+                        call.respond(HttpStatusCode.OK, ImageUploadResponse(
+                            success = true,
+                            message = "Imagen de perfil guardada",
+                            imageUrl = imageUrl!!
+                        ))
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Error al procesar la imagen: ${e.message}"))
+                    }
+                }
+                put {
+                    val email = call.getEmailFromToken()
+                    if (email == null) {
+                        call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                        return@put
+                    }
+                    try {
+                        val multipart = call.receiveMultipart()
+                        var imageUrl: String? = null
+
+                        multipart.forEachPart { part ->
+                            when (part) {
+                                is PartData.FileItem -> {
+                                    imageUrl = userService.updateProfileImage(email, part)
+                                    part.dispose()
+                                }
+                                else -> part.dispose()
+                            }
+                        }
+                        if (imageUrl == null) {
+                            call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "No se proporcionó una imagen válida para actualizar"))
+                            return@put
+                        }
+                        call.respond(HttpStatusCode.OK, ImageUploadResponse(
+                            success = true,
+                            message = "Imagen de perfil actualizada",
+                            imageUrl = imageUrl!!
+                        ))
+                    } catch (e: Exception) {
+                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Error al procesar la imagen: ${e.message}"))
+                    }
+                }
+                get {
+                    val email = call.getEmailFromToken()
+                    if (email == null) {
+                        call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                        return@get
+                    }
+
+                    val imageUrl = userService.getProfileImageUrl(email)
+                    call.respond(HttpStatusCode.OK, mapOf(
+                        "success" to true,
+                        "imageUrl" to imageUrl
+                    ))
+                }
+                delete {
+                    val email = call.getEmailFromToken()
+                    if (email == null) {
+                        call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                        return@delete
+                    }
+                    val success = userService.deleteProfileImage(email)
+                    if (success) {
+                        call.respond(HttpStatusCode.OK, ApiResponse(true, "Imagen de perfil eliminada"))
+                    } else {
+                        call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al eliminar la imagen"))
+                    }
+                }
+            }
             get("/profile") {
                 val email = call.getEmailFromToken()
                 if (email == null) {
                     call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
                     return@get
                 }
-
                 val user = userService.getUserProfile(email)
                 if (user == null) {
                     call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
