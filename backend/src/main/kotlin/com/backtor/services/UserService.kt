@@ -244,7 +244,7 @@ class UserService {
             val today = LocalDateTime.now().toLocalDate()
 
             // Verificar si ya actualizó hoy
-            if (lastActiveDate == today) {
+            if (lastActiveDate == today && currentStreak > 0) {
                 return@transaction false
             }
 
@@ -459,7 +459,7 @@ class UserService {
             null
         }
     }
-        fun addExperience(email: String, points: Int): Boolean {
+    fun addExperience(email: String, points: Int): Boolean {
         return transaction {
             val user = UserTable.select { UserTable.email eq email }.firstOrNull() ?: return@transaction false
             val userId = user[UserTable.id]
