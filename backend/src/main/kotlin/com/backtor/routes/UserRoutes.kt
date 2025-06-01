@@ -551,20 +551,30 @@ fun Route.userRoutes() {
                 val user = userService.getUserProfile(email)
                 if (user == null) {
                     call.respond(HttpStatusCode.NotFound, ApiResponse(false, "Usuario no encontrado"))
-                } else {
-                    if (score == null || score <= 0) {
-                        call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Puntaje inválido"))
-                        return@put
-                    }
-
-                    val success = userService.addExperience(email, score)
-                    if (success) {
-                        call.respond(HttpStatusCode.OK, ApiResponse(true, "Experiencia actualizada"))
-                    } else {
-                        call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar experiencia"))
-                    }
+                    return@put
                 }
+
+                if (score == null || score <= 0) {
+                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Puntaje inválido"))
+                    return@put
+                }
+
+                val experienceAdded = userService.addExperience(email, score)
+                if (!experienceAdded) {
+                    call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar experiencia"))
+                    return@put
+                }
+
+                val streakUpdated = userService.updateStreak(email)
+                val streakMessage = if (streakUpdated) {
+                    " y streak actualizado"
+                } else {
+                    " (streak ya actualizado hoy)"
+                }
+
+                call.respond(HttpStatusCode.OK, ApiResponse(true, "Experiencia actualizada$streakMessage"))
             }
+
             get("/experience/last7") {
                 val email = call.getEmailFromToken()
 
