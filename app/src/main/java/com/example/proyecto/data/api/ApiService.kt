@@ -65,4 +65,10 @@ interface ApiService {
 
     @GET("api/experience/last7")
     suspend fun getLast7DaysExperience(): List<ExperienceData>
+
+    @PUT("api/experience/update")
+    suspend fun updateExperience(@Body request: Map<String, String>): ApiResponse
+
+    @GET("api/streak")
+    suspend fun getUserStreak(): Map<String, Int>
 } 

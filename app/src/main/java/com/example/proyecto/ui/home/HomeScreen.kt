@@ -93,6 +93,18 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Botón para añadir experiencia
+        Button(
+            onClick = {
+                viewModel.addExperience(100) // Añadimos 100 puntos de experiencia
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Añadir experiencia (+100 XP)")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Mostrar loading si está cargando
         if (isLoading) {
             Box(

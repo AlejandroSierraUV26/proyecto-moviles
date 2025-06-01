@@ -34,11 +34,12 @@ import kotlinx.coroutines.delay
 fun ProfileScreen() {
     var experienceData by remember { mutableStateOf<List<ExperienceData>>(emptyList()) }
     var totalExperience by remember { mutableStateOf(0) }
+    var currentStreak by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    // Cargar datos de experiencia
+    // Cargar datos de experiencia y racha
     LaunchedEffect(Unit) {
         scope.launch {
             try {
@@ -51,6 +52,11 @@ fun ProfileScreen() {
                 // Obtener datos de los últimos 7 días
                 val last7DaysResponse = RetrofitClient.apiService.getLast7DaysExperience()
                 experienceData = last7DaysResponse
+
+                // Obtener racha actual
+                val streakResponse = RetrofitClient.apiService.getUserStreak()
+                currentStreak = streakResponse["streak"] ?: 0
+
                 isLoading = false
             } catch (e: Exception) {
                 error = e.message
@@ -108,7 +114,7 @@ fun ProfileScreen() {
             // Tarjeta de Racha
             StatCard(
                 title = "Racha",
-                value = "7 días",
+                value = "$currentStreak días",
                 modifier = Modifier.weight(1f)
             )
             

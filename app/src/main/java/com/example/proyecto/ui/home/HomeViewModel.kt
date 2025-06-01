@@ -146,4 +146,24 @@ class HomeViewModel : ViewModel() {
     fun clearError() {
         _error.value = null
     }
+
+    fun addExperience(points: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+                val response = RetrofitClient.apiService.updateExperience(mapOf("score" to points.toString()))
+                if (response.success) {
+                    // La experiencia se actualizó correctamente
+                    _error.value = null
+                } else {
+                    _error.value = response.message
+                }
+            } catch (e: Exception) {
+                _error.value = "Error al actualizar la experiencia: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 } 
