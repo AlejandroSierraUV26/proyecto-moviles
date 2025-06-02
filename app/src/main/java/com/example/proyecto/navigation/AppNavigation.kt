@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.proyecto.navigation.AppScreens.ResultadosModuloScreen
 import com.example.proyecto.ui.auth.LoginScreen
 import com.example.proyecto.ui.auth.RecuperScreen
 import com.example.proyecto.ui.auth.RegisterScreen
@@ -29,7 +30,7 @@ import com.example.proyecto.ui.courses.CreateCoursesScreen
 import com.example.proyecto.ui.modules.CargaScreen
 import com.example.proyecto.ui.modules.CourseEntryScreen
 import com.example.proyecto.ui.modules.NivelUsuarioScreen
-import com.example.proyecto.ui.modules.Pregunta
+import com.example.proyecto.ui.modules.QuestionScreen
 import com.example.proyecto.ui.modules.QuizViewModel
 import com.example.proyecto.ui.modules.ResultadosModuloScreen
 import com.example.proyecto.ui.modules.SeleCourseScreen
@@ -83,7 +84,7 @@ fun AppNavigation() {
                 RegisterScreen(navController)
             }
             composable(AppScreens.HomeScreen.route) {
-                HomeScreen(viewModel = homeViewModel)
+                HomeScreen(navController, viewModel = homeViewModel)
             }
             composable(AppScreens.CoursesScreen.route) {
                 CoursesScreen(navController = navController, viewModel = coursesViewModel)
@@ -106,38 +107,23 @@ fun AppNavigation() {
             composable(AppScreens.NivelUsuarioScreen.route) {
                 NivelUsuarioScreen(navController)
             }
-            composable(AppScreens.SetPreguntasSreen.route) {
-                val preguntasEjemplo = listOf(
-                    Pregunta(
-                        texto = "¿Cuál es la capital de Colombia?",
-                        opciones = listOf("Bogotá", "Medellín", "Cali", "Cauca"),
-                        respuestaCorrecta = "Bogotá"
-                    ),
-                    Pregunta(
-                        texto = "¿Cuánto es 2 + 2?",
-                        opciones = listOf("3", "4", "5", "9"),
-                        respuestaCorrecta = "4"
-                    )
-                )
-                SetPreguntasScreen(
-                    preguntas = preguntasEjemplo,
-                    onQuizFinalizado = {navController.navigate(AppScreens.ResultadosModuloScreen.route)},
-                    navController = navController
-                )
-            }
+            // En tu archivo de navegación (AppNavigation.kt o similar)
 
             composable(
-                route = "${AppScreens.CargaScreen.route}/{destination}",
-                arguments = listOf(navArgument("destination") { type = NavType.StringType })
+                route = "${AppScreens.SetPreguntasSreen.route}/{sectionId}/{difficultyLevel}",
+                arguments = listOf(
+                    navArgument("sectionId") { type = NavType.IntType },
+                    navArgument("difficultyLevel") { type = NavType.IntType }
+                )
             ) { backStackEntry ->
-                val destination = backStackEntry.arguments?.getString("destination") ?: AppScreens.NivelUsuarioScreen.route
-                CargaScreen(navController = navController, destinationRoute = destination)
-            }
-            composable(AppScreens.ResultadosModuloScreen.route) {
-                val quizViewModel: QuizViewModel = viewModel()
-                ResultadosModuloScreen(
-                    quizViewModel = quizViewModel,
-                    navController = navController
+                val sectionId = backStackEntry.arguments?.getInt("sectionId") ?: 0
+                val difficultyLevel = backStackEntry.arguments?.getInt("difficultyLevel") ?: 1
+
+                SetPreguntasScreen(
+                    sectionId = sectionId,
+                    difficultyLevel = difficultyLevel,
+                    onBack = { navController.popBackStack() }, // Esta es la forma correcta
+                    onQuestionCreated = { navController.popBackStack() }
                 )
             }
             composable(AppScreens.SeleCourseScreen.route) {
@@ -148,6 +134,44 @@ fun AppNavigation() {
             }
             composable(AppScreens.CourseEntryScreen.route) {
                 CourseEntryScreen(navController)
+            }
+            composable(
+                route = "setPreguntas/{sectionId}/{difficultyLevel}",
+                arguments = listOf(
+                    navArgument("sectionId") { type = NavType.IntType },
+                    navArgument("difficultyLevel") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val sectionId = backStackEntry.arguments?.getInt("sectionId") ?: 0
+                val difficultyLevel = backStackEntry.arguments?.getInt("difficultyLevel") ?: 1
+
+                SetPreguntasScreen(
+                    sectionId = sectionId,
+                    difficultyLevel = difficultyLevel,
+                    onBack = { navController.popBackStack() },
+                    onQuestionCreated = { /* Puedes mostrar un Snackbar o algo */ }
+                )
+            }
+            composable(
+                route = "questions/{examId}",
+                arguments = listOf(navArgument("examId") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val examId = backStackEntry.arguments?.getInt("examId") ?: 0
+                QuestionScreen(examId = examId, navController = navController)
+            }
+            composable(
+                route = "${AppScreens.ResultadosModuloScreen.route}/{examId}",
+                arguments = listOf(navArgument("examId") { type = NavType.IntType })
+            ) { backStackEntry ->
+                val examId = backStackEntry.arguments?.getInt("examId") ?: 0
+                val quizViewModel: QuizViewModel = viewModel(backStackEntry)
+
+                ResultadosModuloScreen(
+                    examId = examId,
+                    navController = navController,
+                    viewModel = quizViewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
