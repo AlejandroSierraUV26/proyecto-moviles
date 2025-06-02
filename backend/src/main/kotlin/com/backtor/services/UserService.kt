@@ -5,7 +5,7 @@ import com.backtor.models.UserRegisterRequest
 import com.backtor.models.UserProfile
 import com.backtor.models.UserExperienceTable
 import com.backtor.models.ExperienceDTO
-
+import com.backtor.models.UserCourseWithProgress
 
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
@@ -51,6 +51,7 @@ import io.ktor.http.content.PartData
 fun Expression<LocalDateTime>.date(): Expression<LocalDate> =
     CustomFunction("DATE", JavaLocalDateColumnType(), this)
 class UserService {
+    private val examService = ExamService()
     private val cloudinaryService: CloudinaryService = CloudinaryService()
         suspend fun uploadProfileImage(email: String, file: PartData.FileItem): String? {
             return try {
@@ -613,5 +614,32 @@ class UserService {
             }
             deletedRows > 0
         }
+    }
+
+    fun getUserCoursesWithProgress(email: String): List<UserCourseWithProgress> = transaction {
+        val userId = UserTable
+            .select { UserTable.email eq email }
+            .map { it[UserTable.id] }
+            .firstOrNull() ?: return@transaction emptyList()
+
+        (UserCoursesTable innerJoin CourseTable)
+            .select { UserCoursesTable.userId eq userId }
+            .map { row ->
+                val courseId = row[CourseTable.id]
+
+                // Obtener progreso del curso
+                val progress = examService.getCourseProgress(email, courseId)
+
+                UserCourseWithProgress(
+                    id = courseId,
+                    title = row[CourseTable.title],
+                    description = row[CourseTable.description],
+                    progress = progress.courseProgress,
+                    sections = progress.sections.size,
+                    completedSections = progress.sections.count { section ->
+                        section.completedExams == section.totalExams
+                    }
+                )
+            }
     }
 }

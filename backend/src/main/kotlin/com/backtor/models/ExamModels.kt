@@ -61,8 +61,12 @@ data class AnswerFeedback(
 
 @Serializable
 data class ExamFeedbackResult(
-    val feedback: List<AnswerFeedback>,
-    val correctCount: Int,
-    val totalQuestions: Int,
+    val feedbackList: List<AnswerFeedback>,
+    val correct: Int,  // Asegúrate de que esta propiedad exista
+    val total: Int,    // Asegúrate de que esta propiedad exista
     val percentage: Int
-)
+) {
+    // Propiedades calculadas para compatibilidad
+    val correctAnswers: Int get() = correct
+    val totalAnswers: Int get() = total
+}

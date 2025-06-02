@@ -389,6 +389,16 @@ fun Route.userRoutes() {
                     call.respond(HttpStatusCode.InternalServerError, ApiResponse(false, "Error al actualizar el perfil"))
                 }
             }
+            get("/courses") {
+                val email = call.getEmailFromToken()
+                if (email == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "No autorizado"))
+                    return@get
+                }
+
+                val courses = userService.getUserCoursesWithProgress(email)
+                call.respond(HttpStatusCode.OK, courses)
+            }
             put("/password/update") {
                 val request = try {
                     call.receive<Map<String, String>>()
