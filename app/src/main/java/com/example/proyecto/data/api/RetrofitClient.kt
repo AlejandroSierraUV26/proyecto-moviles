@@ -14,7 +14,10 @@ import java.io.IOException
 object RetrofitClient {
     // Para el emulador de Android, usamos 10.0.2.2 que apunta a localhost de la máquina host
     // Para dispositivo físico, necesitamos usar la IP real de la computadora
-    private const val BASE_URL = "http://192.168.1.60:8080/"
+    //private const val BASE_URL = "http://192.168.1.60:8080/"
+    private const val BASE_URL = "http://192.168.0.26:8080/"
+    //private const val BASE_URL = "http://localhost:8080/"
+
     private val json = Json { ignoreUnknownKeys = true }
     private val contentType = "application/json".toMediaTypeOrNull() ?: throw IllegalStateException("No se pudo crear el MediaType")
 

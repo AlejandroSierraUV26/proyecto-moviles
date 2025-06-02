@@ -14,13 +14,14 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.proyecto.utils.DoubleBackToExitHandler
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewModel()) {
     val userCourses by viewModel.userCourses.collectAsState()
     val selectedCourse by viewModel.selectedCourse.collectAsState()
     val courseSections by viewModel.courseSections.collectAsState()
@@ -148,7 +149,8 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                                     viewModel.loadExamsForSection(section.id)
                                 }
                             }
-                        }
+                        },
+                        navController = navController
                     )
                 }
             }
@@ -161,7 +163,9 @@ private fun SectionCard(
     section: Section,
     exams: List<Exam>,
     isExpanded: Boolean,
-    onToggleExpand: () -> Unit
+    onToggleExpand: () -> Unit,
+    navController: NavController
+
 ) {
     Card(
         modifier = Modifier
@@ -202,7 +206,12 @@ private fun SectionCard(
                     )
                 } else {
                     exams.forEach { exam ->
-                        ExamItem(exam = exam)
+                        ExamItem(
+                            exam = exam,
+                            onExamClick = { clickedExam ->
+                                navController.navigate("questions/${clickedExam.id}")
+                            }
+                        )
                         if (exam != exams.last()) {
                             Spacer(modifier = Modifier.height(8.dp))
                         }
@@ -214,11 +223,11 @@ private fun SectionCard(
 }
 
 @Composable
-private fun ExamItem(exam: Exam) {
+private fun ExamItem(exam: Exam, onExamClick: (Exam) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* TODO: Navegar al examen */ },
+            .clickable { onExamClick(exam)},
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -249,7 +258,11 @@ private fun ExamItem(exam: Exam) {
 }
 
 @Composable
-private fun SectionCard(section: Section) {
+fun SectionCard(
+    section: Section,
+    exams: List<Exam>,
+    navController: NavController
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium
@@ -268,9 +281,25 @@ private fun SectionCard(section: Section) {
                 text = "Nivel de dificultad: ${getDifficultyText(section.difficultyLevel)}",
                 style = MaterialTheme.typography.bodyMedium
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Agrega la lista de exámenes aquí
+            exams.forEach { exam ->
+                ExamItem(
+                    exam = exam,
+                    onExamClick = { clickedExam ->
+                        navController.navigate("questions/${clickedExam.id}")
+                    }
+                )
+                if (exam != exams.last()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
         }
     }
 }
+
 
 private fun getDifficultyText(level: Int): String {
     return when (level) {
