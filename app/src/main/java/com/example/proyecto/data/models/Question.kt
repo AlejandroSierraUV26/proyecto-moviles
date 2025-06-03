@@ -22,7 +22,7 @@ data class QuestionRequest(
     @SerialName("feedback") val feedback: String // Cambiado a no nullable
 )
 
-// En models/ExamSubmission.kt
+
 @Serializable
 data class ExamSubmission(
     @SerialName("examId") val examId: Int,
@@ -35,11 +35,13 @@ data class AnswerSubmission(
     @SerialName("selectedAnswer") val selectedAnswer: String
 )
 
-// En models/ExamFeedbackResult.kt
+
+
 @Serializable
 data class ExamFeedbackResult(
-    @SerialName("feedbackList") val feedbackList: List<AnswerFeedback>,
-    @SerialName("correctAnswers") val correctAnswers: Int,
-    @SerialName("totalQuestions") val totalQuestions: Int,
+    @SerialName("feedback") val feedbackList: List<AnswerFeedback>,
+    @SerialName("correctCount") val correct: Int,
+    @SerialName("totalQuestions") val total: Int,
     @SerialName("percentage") val percentage: Int
+
 )

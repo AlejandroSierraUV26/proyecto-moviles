@@ -1,12 +1,11 @@
 package com.example.proyecto.data.models
 
+import android.health.connect.datatypes.units.Percentage
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class ExamResult(
-    val examId: Int,
     val correctAnswers: Int,
     val totalQuestions: Int,
-    val score: Float,
-    val feedback: List<AnswerFeedback>
+    val percentage: Int
 )

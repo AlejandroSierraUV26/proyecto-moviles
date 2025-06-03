@@ -3,7 +3,9 @@ package com.example.proyecto.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -33,6 +35,7 @@ import com.example.proyecto.ui.modules.NivelUsuarioScreen
 import com.example.proyecto.ui.modules.QuestionScreen
 import com.example.proyecto.ui.modules.QuizViewModel
 import com.example.proyecto.ui.modules.ResultadosModuloScreen
+import com.example.proyecto.ui.modules.ResultadosViewModel
 import com.example.proyecto.ui.modules.SeleCourseScreen
 import com.example.proyecto.ui.modules.SetPreguntasScreen
 
@@ -157,19 +160,44 @@ fun AppNavigation() {
                 arguments = listOf(navArgument("examId") { type = NavType.IntType })
             ) { backStackEntry ->
                 val examId = backStackEntry.arguments?.getInt("examId") ?: 0
-                QuestionScreen(examId = examId, navController = navController)
+                val currentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("questions/$examId")
+                }
+                val quizViewModel: QuizViewModel = viewModel(currentEntry)
+
+                QuestionScreen(
+                    examId = examId,
+                    navController = navController,
+                    quizViewModel = quizViewModel
+                )
             }
+
             composable(
-                route = "${AppScreens.ResultadosModuloScreen.route}/{examId}",
-                arguments = listOf(navArgument("examId") { type = NavType.IntType })
+                route = "resultados_modulo/{moduloId}",
+                arguments = listOf(navArgument("moduloId") { type = NavType.IntType })
             ) { backStackEntry ->
-                val examId = backStackEntry.arguments?.getInt("examId") ?: 0
-                val quizViewModel: QuizViewModel = viewModel(backStackEntry)
+                val examId = backStackEntry.arguments?.getInt("moduloId") ?: 0
+
+                // 🔧 Aquí usamos la ruta concreta con el examId
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("questions/$examId")
+                }
+                val quizViewModel: QuizViewModel = viewModel(parentEntry)
+
+                // ViewModel de resultados
+                val resultadosViewModel: ResultadosViewModel = viewModel()
+
+                // Transferir respuestas del quiz al viewModel de resultados
+                LaunchedEffect(key1 = examId) {
+                    val answers = quizViewModel.userAnswers.value
+                    resultadosViewModel.setUserAnswers(answers)
+                    resultadosViewModel.submitExam(examId, answers)
+                }
 
                 ResultadosModuloScreen(
                     examId = examId,
                     navController = navController,
-                    viewModel = quizViewModel,
+                    viewModel = resultadosViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }

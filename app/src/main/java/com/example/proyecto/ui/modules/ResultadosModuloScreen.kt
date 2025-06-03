@@ -16,6 +16,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import kotlinx.serialization.json.Json
+import com.example.proyecto.data.models.AnswerFeedback
+import com.example.proyecto.data.models.ExamFeedbackResult
+
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,13 +28,23 @@ import androidx.navigation.NavController
 fun ResultadosModuloScreen(
     examId: Int,
     navController: NavController,
-    viewModel: QuizViewModel = viewModel(),
+    viewModel: ResultadosViewModel = viewModel(),
     onBack: () -> Unit,
 ) {
     val examResult by viewModel.examResult.collectAsState()
     val loadingState by viewModel.loadingState.collectAsState()
+    var examSubmitted by remember { mutableStateOf(false) }
     val userAnswers by viewModel.userAnswers.collectAsState()
+    val feedbackResult by viewModel.examFeedback.collectAsState()
+    val feedbackList: List<AnswerFeedback> = feedbackResult?.feedbackList ?: emptyList()
 
+
+    LaunchedEffect(Unit) {
+        if (!examSubmitted && userAnswers.isNotEmpty()) {
+            viewModel.submitExam(examId, userAnswers)
+            examSubmitted = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -54,13 +69,13 @@ fun ResultadosModuloScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when (loadingState) {
-                is QuizViewModel.LoadingState.Loading -> {
+                is ResultadosViewModel.LoadingState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                 }
 
-                is QuizViewModel.LoadingState.Error -> {
+                is ResultadosViewModel.LoadingState.Error -> {
                     Text(
-                        text = (loadingState as QuizViewModel.LoadingState.Error).message,
+                        text = (loadingState as ResultadosViewModel.LoadingState.Error).message,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
@@ -75,15 +90,14 @@ fun ResultadosModuloScreen(
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
 
-                        // Puntuación
                         Text(
-                            "Puntuación: ${result.correctAnswers}/${result.totalQuestions} (${result.score.toInt()}%)",
+                            "Puntuación: ${result.correctAnswers}/${result.totalQuestions} (${result.percentage}%)",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = when {
-                                result.score >= 80 -> Color(0xFF4CAF50)  // Verde
-                                result.score >= 50 -> Color(0xFFFFC107)  // Amarillo
-                                else -> Color(0xFFF44336)                // Rojo
+                                result.correctAnswers >= 8 -> Color(0xFF4CAF50)
+                                result.percentage >= 50 -> Color(0xFFFFC107)
+                                else -> Color(0xFFF44336)
                             },
                             modifier = Modifier.align(Alignment.CenterHorizontally)
                         )
@@ -96,7 +110,7 @@ fun ResultadosModuloScreen(
                         )
 
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(result.feedback) { item ->
+                            items(feedbackList) { item: AnswerFeedback ->
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(
@@ -120,7 +134,7 @@ fun ResultadosModuloScreen(
                                             val isCorrect = option == item.correctAnswer
 
                                             Text(
-                                                option,
+                                                text = option,
                                                 color = when {
                                                     isCorrect -> Color.Green
                                                     isSelected && !isCorrect -> Color.Red
@@ -133,7 +147,7 @@ fun ResultadosModuloScreen(
                                         Spacer(modifier = Modifier.height(8.dp))
 
                                         Text(
-                                            "Retroalimentación: ${item.feedback}",
+                                            "Respuesta correcta: ${item.correctAnswer}",
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 fontStyle = FontStyle.Italic
                                             ),

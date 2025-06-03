@@ -74,7 +74,6 @@ interface ApiService {
     @GET("api/exams/by-section/{sectionId}")
     suspend fun getExamsBySection(@Path("sectionId") sectionId: Int): Response<List<Exam>>
 
-
     @GET("api/experience")
     suspend fun getUserExperience(): ExperienceTotalResponse
 
@@ -126,6 +125,9 @@ interface ApiService {
             return MultipartBody.Part.createFormData("image", file.name, requestFile)
         }
     }
+
+    @POST("/api/exams/submit") // ← Ruta correcta
+    suspend fun evaluateExam(@Body submission: ExamSubmission): Response<ExamFeedbackResult>
 }
 
 data class ProfileImageResponse(

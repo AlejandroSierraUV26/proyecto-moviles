@@ -5,6 +5,7 @@ import com.example.proyecto.utils.SecurePreferences
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Response
@@ -65,6 +66,9 @@ object RetrofitClient {
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .addConverterFactory(json.asConverterFactory(contentType))
+            //.addConverterFactory(json.asConverterFactory(contentType))
+            .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
+
             .build()
     }
 
@@ -75,4 +79,6 @@ object RetrofitClient {
             }
             return retrofit!!.create(ApiService::class.java)
         }
+
+
 } 

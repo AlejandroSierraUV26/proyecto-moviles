@@ -16,10 +16,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.proyecto.navigation.AppScreens
-import com.example.proyecto.data.models.AnswerFeedback
 import com.example.proyecto.data.models.AnswerSubmission
-import com.example.proyecto.data.models.ExamResult
-
+import com.example.proyecto.ui.modules.ResultadosViewModel
 
 @Composable
 fun QuestionScreen(
@@ -33,8 +31,6 @@ fun QuestionScreen(
     var currentQuestionIndex by remember { mutableStateOf(0) }
     var selectedAnswer by remember { mutableStateOf<String?>(null) }
     var showResult by remember { mutableStateOf(false) }
-    var correctCount by remember { mutableStateOf(0) }
-    // Guardar las respuestas de todas las preguntas
     val selectedAnswers = remember { mutableStateMapOf<Int, String>() }
 
     LaunchedEffect(Unit) {
@@ -77,9 +73,9 @@ fun QuestionScreen(
                         val isSelected = option == selectedAnswer
 
                         val borderColor = when {
-                            showResult && isCorrect -> Color(0xFF4CAF50) // Verde
-                            showResult && isSelected -> Color(0xFFF44336) // Rojo
-                            isSelected -> Color(0xFF163DA8) // Azul
+                            showResult && isCorrect -> Color(0xFF4CAF50)
+                            showResult && isSelected -> Color(0xFFF44336)
+                            isSelected -> Color(0xFF163DA8)
                             else -> Color.Gray.copy(alpha = 0.5f)
                         }
 
@@ -129,7 +125,6 @@ fun QuestionScreen(
 
                     Button(
                         onClick = {
-                            // Guardar la respuesta actual
                             if (selectedAnswer != null) {
                                 selectedAnswers[question.id] = selectedAnswer!!
 
@@ -138,16 +133,16 @@ fun QuestionScreen(
                                     selectedAnswer = selectedAnswers[questions[currentQuestionIndex].id]
                                     showResult = false
                                 } else {
-                                    // Preparar las respuestas para enviar
-                                    val answersToSubmit: List<AnswerSubmission> = questions.map { q ->
+                                    // Construimos la lista de respuestas a enviar
+                                    val answersList = questions.map { q ->
                                         AnswerSubmission(
                                             questionId = q.id,
                                             selectedAnswer = selectedAnswers[q.id] ?: ""
                                         )
                                     }
-                                    // Actualizar el ViewModel
-                                    quizViewModel.submitExam(examId, answersToSubmit)
+
                                     // Navegar a resultados
+                                    quizViewModel.setAllAnswers(answersList)
                                     navController.navigate("${AppScreens.ResultadosModuloScreen.route}/$examId")
                                 }
                             }
