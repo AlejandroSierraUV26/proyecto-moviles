@@ -632,4 +632,35 @@ class UserService {
                 )
             }
     }
+    fun registerUserViaGoogle(email: String, username: String, profileImageUrl: String?): UserProfile {
+        transaction {
+            UserTable.insert {
+                it[UserTable.email] = email
+                it[UserTable.passwordHash] = "" // Contraseña vacía para Google
+                it[UserTable.username] = username
+                it[UserTable.profileImageUrl] = profileImageUrl
+                it[UserTable.streak] = 0
+                it[UserTable.lastActiveDate] = LocalDateTime.now()
+                it[UserTable.createdAt] = LocalDateTime.now()
+            }
+        }
+        return UserProfile(
+            email = email,
+            username = username,
+            streak = 0,
+            experienceScore = 0,
+            experienceTotal = 0,
+            lastActivity = LocalDateTime.now(),
+            createdAt = LocalDateTime.now()
+        )
+    }
+    suspend fun findOrCreateUserByEmail(email: String, name: String, profilePic: String?): UserProfile {
+        val existingUser = findByEmail(email)
+        return if (existingUser != null) {
+            existingUser
+        } else {
+            registerUserViaGoogle(email, name, profilePic)
+        }
+    }
+
 }

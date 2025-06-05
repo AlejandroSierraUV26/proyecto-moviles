@@ -13,7 +13,7 @@ object UserTable : Table("users") {
     val id = integer("id").autoIncrement()
     val email = varchar("email", 100).uniqueIndex()
     val username = varchar("username", 50).uniqueIndex()
-    val passwordHash = varchar("password_hash", 255)
+    val passwordHash = varchar("password_hash", 255).nullable()  // <- nullable
     val streak = integer("streak").default(0)
     val lastActiveDate = datetime("last_active_date")
     val createdAt = datetime("created_at")
