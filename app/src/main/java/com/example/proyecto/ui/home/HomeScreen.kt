@@ -1,15 +1,6 @@
 package com.example.proyecto.ui.home
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.proyecto.utils.DoubleBackToExitHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,70 +8,80 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.proyecto.ui.courses.Course
-import com.example.proyecto.ui.courses.CoursesViewModel
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.example.proyecto.utils.DoubleBackToExitHandler
+import com.example.proyecto.data.models.Course
+import com.example.proyecto.data.models.Section
+import com.example.proyecto.data.models.Exam
 
 @Composable
-fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
-    val courses by remember { derivedStateOf { viewModel.courses } }
-    val selectedCourse by remember { derivedStateOf { viewModel.selectedCourse } }
-    var expanded by remember { mutableStateOf(false) }
+fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewModel()) {
+    val userCourses by viewModel.userCourses.collectAsState()
+    val selectedCourse by viewModel.selectedCourse.collectAsState()
+    val courseSections by viewModel.courseSections.collectAsState()
+    val sectionExams by viewModel.sectionExams.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    var expandedCourse by remember { mutableStateOf(false) }
+    var expandedSections by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    
+    // Cargar los cursos cuando se inicia el HomeScreen
+    LaunchedEffect(Unit) {
+        viewModel.loadUserCourses()
+    }
     
     DoubleBackToExitHandler {
-        // Cierra la aplicación
         android.os.Process.killProcess(android.os.Process.myPid())
     }
-
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Selector de cursos
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expandedCourse = !expandedCourse },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = selectedCourse ?: "Selecciona un curso",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f)
+                        text = selectedCourse?.title ?: "Selecciona un curso",
+                        style = MaterialTheme.typography.titleMedium
                     )
-
-                    if (courses.isNotEmpty()) {
-                        IconButton(onClick = { expanded = !expanded }) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = if (expanded) "Contraer" else "Expandir",
-                                modifier = Modifier.rotate(if (expanded) 180f else 0f)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = if (expandedCourse) "Contraer" else "Expandir",
+                        modifier = Modifier.rotate(if (expandedCourse) 180f else 0f)
+                    )
                 }
 
-                if (expanded && courses.isNotEmpty()) {
+                if (expandedCourse && userCourses.isNotEmpty()) {
                     Column {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        courses.forEach { courseName ->
+                        userCourses.forEach { course ->
                             Text(
-                                text = courseName,
+                                text = course.title,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        viewModel.selectCourse(courseName)
-                                        expanded = false
+                                        viewModel.selectCourse(course)
+                                        expandedCourse = false
                                     }
                                     .padding(8.dp)
                             )
@@ -93,25 +94,219 @@ fun HomeScreen(viewModel: CoursesViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        selectedCourse?.let { course ->
+        // Botón para añadir experiencia
+        Button(
+            onClick = {
+                viewModel.addExperience(100) // Añadimos 100 puntos de experiencia
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Añadir experiencia (+100 XP)")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Mostrar loading si está cargando
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        // Mostrar error si existe y no está cargando
+        if (error != null && !isLoading) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Contenido $course",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontSize = 18.sp
+                Text(
+                    text = error!!,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Mostrar secciones si hay un curso seleccionado y no está cargando
+        if (selectedCourse != null && !isLoading) {
+            LazyColumn {
+                items(courseSections) { section ->
+                    SectionCard(
+                        section = section,
+                        exams = sectionExams[section.id] ?: emptyList(),
+                        isExpanded = expandedSections.contains(section.id),
+                        onToggleExpand = {
+                            expandedSections = if (expandedSections.contains(section.id)) {
+                                expandedSections - section.id
+                            } else {
+                                (expandedSections + section.id).also {
+                                    viewModel.loadExamsForSection(section.id)
+                                }
+                            }
+                        },
+                        navController = navController
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    section: Section,
+    exams: List<Exam>,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    navController: NavController
+
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggleExpand),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = if (isExpanded) "Contraer" else "Expandir",
+                    modifier = Modifier.rotate(if (isExpanded) 180f else 0f)
+                )
+            }
+
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                if (exams.isEmpty()) {
+                    Text(
+                        text = "No hay exámenes disponibles",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    exams.forEach { exam ->
+                        ExamItem(
+                            exam = exam,
+                            onExamClick = { clickedExam ->
+                                navController.navigate("questions/${clickedExam.id}")
+                            }
+                        )
+                        if (exam != exams.last()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExamItem(exam: Exam, onExamClick: (Exam) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onExamClick(exam)},
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Text(
+                text = exam.title,
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (!exam.description.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = exam.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Nivel de dificultad: ${getDifficultyText(exam.difficultyLevel)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun SectionCard(
+    section: Section,
+    exams: List<Exam>,
+    navController: NavController
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = section.title,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Nivel de dificultad: ${getDifficultyText(section.difficultyLevel)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Agrega la lista de exámenes aquí
+            exams.forEach { exam ->
+                ExamItem(
+                    exam = exam,
+                    onExamClick = { clickedExam ->
+                        navController.navigate("questions/${clickedExam.id}")
+                    }
+                )
+                if (exam != exams.last()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+
+private fun getDifficultyText(level: Int): String {
+    return when (level) {
+        1 -> "Fácil"
+        2 -> "Intermedio"
+        3 -> "Difícil"
+        else -> "Nivel $level"
     }
 }
 
@@ -133,9 +328,3 @@ private fun CourseItem(
             .padding(8.dp)
     )
 }
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    HomeScreen()
-} 

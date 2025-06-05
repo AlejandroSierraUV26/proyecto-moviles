@@ -13,21 +13,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyecto.R
+import com.example.proyecto.data.models.Course
 
 @Composable
-fun DeleteCourseScreen() {
-    // Estado para controlar qué curso se está intentando eliminar
-    var courseToDelete by remember { mutableStateOf<String?>(null) }
+fun DeleteCourseScreen(
+    viewModel: DeleteCourseViewModel = viewModel()
+) {
+    val courses by viewModel.courses.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
     
-    // Lista de cursos como estado mutable
-    var courses by remember { 
-        mutableStateOf(listOf(
-            "Curso 1", "Curso 2", "Curso 3", "Curso 4", "Curso 5", 
-            "Curso 6", "Curso 7", "Curso 8", "Curso 9", "Curso 10", 
-            "Curso 11", "Curso 12"
-        )) 
-    }
+    // Estado para controlar qué curso se está intentando eliminar
+    var courseToDelete by remember { mutableStateOf<Course?>(null) }
 
     Column(
         modifier = Modifier
@@ -43,33 +42,45 @@ fun DeleteCourseScreen() {
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(courses) { course ->
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        } else if (error != null) {
+            Text(
+                text = error ?: "",
+                color = Color.Red,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(courses) { course ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = course,
-                            fontSize = 18.sp
-                        )
-                        
-                        IconButton(
-                            onClick = { courseToDelete = course }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_delete),
-                                contentDescription = "Eliminar curso",
-                                tint = Color.Red
+                            Text(
+                                text = course.title,
+                                fontSize = 18.sp
                             )
+                            
+                            IconButton(
+                                onClick = { courseToDelete = course }
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_delete),
+                                    contentDescription = "Eliminar curso",
+                                    tint = Color.Red
+                                )
+                            }
                         }
                     }
                 }
@@ -88,14 +99,14 @@ fun DeleteCourseScreen() {
                     )
                 },
                 text = {
-                    Text("¿Estás seguro que deseas eliminar este curso?")
+                    Text("¿Estás seguro que deseas eliminar el curso ${courseToDelete?.title}?")
                 },
                 confirmButton = {
                     Button(
                         onClick = {
-                            // TODO: Implementar lógica para eliminar curso
-                            // Eliminar el curso de la lista
-                            courses = courses.filter { it != courseToDelete }
+                            courseToDelete?.let { course ->
+                                viewModel.deleteCourse(course.id)
+                            }
                             courseToDelete = null
                         },
                         colors = ButtonDefaults.buttonColors(

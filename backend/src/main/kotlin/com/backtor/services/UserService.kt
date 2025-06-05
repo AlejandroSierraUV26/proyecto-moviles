@@ -194,7 +194,12 @@ class UserService {
             val userRow = UserTable.select { UserTable.email eq email }.firstOrNull() ?: return@transaction null
 
             val userId = userRow[UserTable.id]
-            val totalExperience = userRow[UserTable.experienceTotal]
+
+            // Calcular experiencia total sumando todos los registros de user_experience
+            val totalExperience = UserExperienceTable
+                .slice(UserExperienceTable.experiencePoints)
+                .select { UserExperienceTable.userId eq userId }
+                .sumOf { it[UserExperienceTable.experiencePoints] }
 
             // Calcular experiencia de los últimos 7 días
             val sevenDaysAgo = LocalDateTime.now().minusDays(7)
@@ -207,11 +212,16 @@ class UserService {
                 }
                 .sumOf { it[UserExperienceTable.experiencePoints] }
 
+            // Actualizar la experiencia total en la tabla de usuarios
+            UserTable.update({ UserTable.id eq userId }) {
+                it[UserTable.experienceTotal] = totalExperience
+            }
+
             UserProfile(
                 email = userRow[UserTable.email],
                 username = userRow[UserTable.username],
                 streak = userRow[UserTable.streak],
-                experienceScore = last7DaysExp,  // no experience_score
+                experienceScore = last7DaysExp,
                 experienceTotal = totalExperience,
                 lastActivity = userRow[UserTable.lastActiveDate],
                 createdAt = userRow[UserTable.createdAt]

@@ -70,10 +70,13 @@ fun Route.examRoutes() {
             val exam = examService.getExamById(examId) ?: return@get call.respond(HttpStatusCode.NotFound)
             call.respond(exam)
         }
-        get("/exams/by-section/{sectionId}") {
+        get("/by-section/{sectionId}") {
             val sectionId = call.parameters["sectionId"]?.toIntOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid sectionId")
-            call.respond(examService.getExamsBySection(sectionId))
+            println("API LOG: sectionId recibido = $sectionId")
+            val exams = examService.getExamsBySection(sectionId)
+            println("API LOG: exámenes encontrados = ${exams.size}")
+            call.respond(HttpStatusCode.OK, exams)
         }
         get("/exams") {
             call.respond(examService.getAllExams())
