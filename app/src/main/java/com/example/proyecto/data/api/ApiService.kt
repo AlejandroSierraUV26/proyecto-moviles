@@ -2,10 +2,12 @@ package com.example.proyecto.data.api
 
 import com.example.proyecto.data.models.UserRegisterRequest
 import com.example.proyecto.data.models.UserLoginRequest
-import com.example.proyecto.data.models.LoginResponse
 import com.example.proyecto.data.models.RegisterResponse
 import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
+import com.example.proyecto.data.models.GoogleLoginRequest
+import com.example.proyecto.data.models.GoogleLoginResponse
+import com.example.proyecto.data.models.LoginResponse
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
@@ -75,7 +77,7 @@ interface ApiService {
 
     @GET("api/streak")
     suspend fun getUserStreak(): Map<String, Int>
- 
+
     @GET("api/exams/questions/{examId}")
     suspend fun getQuestionsByExam(@Path("examId") examId: Int): Response<List<Question>>
 
@@ -84,5 +86,9 @@ interface ApiService {
 
     @POST("submit") // ← Ruta correcta
     suspend fun evaluateExam(@Body submission: ExamSubmission): Response<ExamResult>
+
+    @POST("/api/auth/google")
+    suspend fun loginWithGoogle(@Body request: GoogleLoginRequest): Response<GoogleLoginResponse>
+
 }
 

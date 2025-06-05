@@ -1,11 +1,12 @@
 package com.example.proyecto.ui.auth
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
+import com.example.proyecto.data.models.GoogleLoginRequest
 import com.example.proyecto.data.models.UserLoginRequest
-import com.example.proyecto.data.models.LoginResponse
 import com.example.proyecto.utils.SecurePreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,53 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    fun loginWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            Log.d("LoginViewModel", "Enviando idToken al backend: $idToken")
+            try {
+                _loginState.value = LoginState.Loading
+
+                val response = RetrofitClient.apiService.loginWithGoogle(
+                    GoogleLoginRequest(idToken)
+                )
+
+                if (response.isSuccessful) {
+                    val apiResponse = response.body()
+
+                    if (apiResponse != null) {
+                        val token = apiResponse.token
+                        val email = apiResponse.email
+                        val username = apiResponse.username
+
+                        if (token.isNotBlank() && email.isNotBlank()) {
+                            try {
+                                securePreferences.saveToken(token)
+                                securePreferences.saveUserEmail(email)
+                                if (!username.isNullOrBlank()) {
+                                    securePreferences.saveUsername(username)
+                                }
+                                _loginState.value = LoginState.Success("Inicio de sesión con Google exitoso")
+                            } catch (e: Exception) {
+                                _loginState.value = LoginState.Error("Error al guardar datos de usuario: ${e.localizedMessage}")
+                            }
+                        } else {
+                            _loginState.value = LoginState.Error("Datos incompletos en la respuesta del servidor")
+                        }
+                    } else {
+                        _loginState.value = LoginState.Error("Fallo en el inicio de sesión")
+                    }
+
+                } else {
+                    val errorBody = response.errorBody()?.string() ?: "Error desconocido"
+                    _loginState.value = LoginState.Error("Error de red: $errorBody")
+                }
+
+            } catch (e: Exception) {
+                _loginState.value = LoginState.Error("Error al iniciar sesión con Google: ${e.localizedMessage}")
+            }
+        }
+    }
+
 }
 
 sealed class LoginState {
