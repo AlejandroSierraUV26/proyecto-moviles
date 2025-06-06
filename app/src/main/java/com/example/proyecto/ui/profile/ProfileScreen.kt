@@ -45,11 +45,20 @@ fun ProfileScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var username by remember { mutableStateOf("") }
 
     // Cargar datos de experiencia y racha
     LaunchedEffect(Unit) {
         scope.launch {
             try {
+                // Obtener datos del perfil
+                val profileResponse = RetrofitClient.apiService.getUserProfile()
+                if (profileResponse.isSuccessful) {
+                    profileResponse.body()?.let { userProfile ->
+                        username = userProfile.username
+                    }
+                }
+
                 // Obtener experiencia total
                 val experienceResponse = RetrofitClient.apiService.getUserExperience()
                 if (experienceResponse.success) {
@@ -113,7 +122,7 @@ fun ProfileScreen(
         
         // Nombre de usuario
         Text(
-            text = "Usuario Ejemplo",
+            text = "¡Bienvenido $username!",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
