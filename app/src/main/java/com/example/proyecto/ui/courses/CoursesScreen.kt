@@ -23,6 +23,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.utils.DoubleBackToExitHandler
 import com.example.proyecto.data.models.Course
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.DialogProperties
 
 @Composable
 fun CoursesScreen(
@@ -112,6 +114,8 @@ fun CourseCard(
     onExpandClick: () -> Unit,
     viewModel: CoursesViewModel
 ) {
+    var showSuccessDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -155,6 +159,7 @@ fun CourseCard(
                     Button(
                         onClick = {
                             viewModel.addCourseToUser(course.id)
+                            showSuccessDialog = true
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -163,5 +168,37 @@ fun CourseCard(
                 }
             }
         }
+    }
+
+    // Diálogo de éxito
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog = false },
+            title = {
+                Text(
+                    text = "¡Éxito!",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Green
+                )
+            },
+            text = {
+                Text("El curso ha sido agregado correctamente")
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSuccessDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Green
+                    )
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            )
+        )
     }
 }
