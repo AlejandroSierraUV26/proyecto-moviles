@@ -231,7 +231,7 @@ fun Route.userRoutes() {
                 data class ImageUploadResponse(
                     val success: Boolean,
                     val message: String,
-                    val imageUrl: String
+                    val imageUrl: String?
                 )
                 post {
                     val email = call.getEmailFromToken()
@@ -259,7 +259,7 @@ fun Route.userRoutes() {
                         call.respond(HttpStatusCode.OK, ImageUploadResponse(
                             success = true,
                             message = "Imagen de perfil guardada",
-                            imageUrl = imageUrl!!
+                            imageUrl = imageUrl
                         ))
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Error al procesar la imagen: ${e.message}"))
@@ -291,7 +291,7 @@ fun Route.userRoutes() {
                         call.respond(HttpStatusCode.OK, ImageUploadResponse(
                             success = true,
                             message = "Imagen de perfil actualizada",
-                            imageUrl = imageUrl!!
+                            imageUrl = imageUrl
                         ))
                     } catch (e: Exception) {
                         call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Error al procesar la imagen: ${e.message}"))
@@ -305,9 +305,10 @@ fun Route.userRoutes() {
                     }
 
                     val imageUrl = userService.getProfileImageUrl(email)
-                    call.respond(HttpStatusCode.OK, mapOf(
-                        "success" to true,
-                        "imageUrl" to imageUrl
+                    call.respond(HttpStatusCode.OK, ImageUploadResponse(
+                        success = true,
+                        message = "Imagen de perfil obtenida",
+                        imageUrl = imageUrl
                     ))
                 }
                 delete {

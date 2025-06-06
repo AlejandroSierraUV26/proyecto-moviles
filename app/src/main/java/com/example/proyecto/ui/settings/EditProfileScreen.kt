@@ -1,5 +1,8 @@
 package com.example.proyecto.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,12 +53,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.navigation.NavController
 import com.example.proyecto.navigation.AppScreens
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.proyecto.ui.profile.ProfileViewModel
 
 @Composable
 fun EditProfileScreen(
     viewModel: EditProfileViewModel = viewModel(),
+    profileViewModel: ProfileViewModel = viewModel(),
     navController: NavController
 ) {
+    val context = LocalContext.current
     val profileState by viewModel.profileState.collectAsState()
     val scope = rememberCoroutineScope()
     
@@ -86,6 +95,15 @@ fun EditProfileScreen(
     var showSuccessDialog by remember { mutableStateOf(false) }
     // Estado para controlar si es una actualización
     var isUpdating by remember { mutableStateOf(false) }
+
+    var showDeleteImageDialog by remember { mutableStateOf(false) }
+    
+    // Launcher para seleccionar imagen de la galería
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { profileViewModel.updateProfileImage(it) }
+    }
 
     // Función para validar los campos
     fun validateFields(): Boolean {
@@ -192,19 +210,76 @@ fun EditProfileScreen(
             fontWeight = FontWeight.Bold
         )
 
-        // Imagen de perfil circular
+        // Imagen de perfil con botones de acción
         Box(
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
                 .background(Color.Gray)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_profile),
-                contentDescription = "Foto de perfil",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+            if (profileViewModel.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                if (profileViewModel.profileImageUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(profileViewModel.profileImageUrl)
+                            .crossfade(true)
+                            .placeholder(R.drawable.ic_profile)
+                            .error(R.drawable.ic_profile)
+                            .build(),
+                        contentDescription = "Foto de perfil",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_profile),
+                        contentDescription = "Foto de perfil",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+        }
+
+        // Después de los botones de acción
+        if (profileViewModel.error != null) {
+            Text(
+                text = profileViewModel.error!!,
+                color = Color.Red,
+                modifier = Modifier.padding(top = 8.dp)
             )
+        }
+
+        // Botones de acción para la imagen
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(
+                onClick = { imagePickerLauncher.launch("image/*") },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Cambiar Foto")
+            }
+            
+            if (profileViewModel.profileImageUrl != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = { showDeleteImageDialog = true },
+                    modifier = Modifier.weight(1f),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = Color.Red
+                    )
+                ) {
+                    Text("Eliminar")
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -603,6 +678,43 @@ fun EditProfileScreen(
                     dismissOnBackPress = true,
                     dismissOnClickOutside = true
                 )
+            )
+        }
+
+        // Diálogo de confirmación para eliminar imagen
+        if (showDeleteImageDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteImageDialog = false },
+                title = {
+                    Text(
+                        text = "Eliminar Foto",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text("¿Estás seguro que deseas eliminar tu foto de perfil?")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            profileViewModel.deleteProfileImage()
+                            showDeleteImageDialog = false
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = Color.Red
+                        )
+                    ) {
+                        Text("Sí")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { showDeleteImageDialog = false }
+                    ) {
+                        Text("No")
+                    }
+                }
             )
         }
     }

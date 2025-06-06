@@ -10,11 +10,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.proyecto.R
 import com.example.proyecto.utils.DoubleBackToExitHandler
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
@@ -31,7 +36,9 @@ import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import kotlinx.coroutines.delay
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(
+    viewModel: ProfileViewModel = viewModel()
+) {
     var experienceData by remember { mutableStateOf<List<ExperienceData>>(emptyList()) }
     var totalExperience by remember { mutableStateOf(0) }
     var currentStreak by remember { mutableStateOf(0) }
@@ -76,14 +83,31 @@ fun ProfileScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Foto de perfil
-        Image(
-            painter = painterResource(id = R.drawable.ic_profile),
-            contentDescription = "Foto de perfil",
+        Box(
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
                 .background(Color.Gray)
-        )
+        ) {
+            if (viewModel.profileImageUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(viewModel.profileImageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Foto de perfil",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_profile),
+                    contentDescription = "Foto de perfil",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         

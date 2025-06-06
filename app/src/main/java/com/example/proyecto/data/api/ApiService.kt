@@ -1,5 +1,8 @@
 package com.example.proyecto.data.api
 
+import android.app.Application
+import android.content.Context
+import android.net.Uri
 import com.example.proyecto.data.models.UserRegisterRequest
 import com.example.proyecto.data.models.UserLoginRequest
 import com.example.proyecto.data.models.LoginResponse
@@ -25,6 +28,14 @@ import retrofit2.http.DELETE
 import retrofit2.http.Header
 import retrofit2.http.Query
 import retrofit2.http.Path
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+import java.io.File
+import java.io.FileOutputStream
 
 interface ApiService {
     @POST("api/register")
@@ -84,5 +95,42 @@ interface ApiService {
 
     @POST("submit") // ← Ruta correcta
     suspend fun evaluateExam(@Body submission: ExamSubmission): Response<ExamResult>
+
+    @GET("api/profile/image")
+    suspend fun getProfileImage(): ProfileImageResponse
+
+    @Multipart
+    @POST("api/profile/image")
+    suspend fun uploadProfileImage(
+        @Part image: MultipartBody.Part
+    ): ProfileImageResponse
+
+    @Multipart
+    @PUT("api/profile/image")
+    suspend fun updateProfileImage(
+        @Part image: MultipartBody.Part 
+    ): ProfileImageResponse
+
+    @DELETE("api/profile/image")
+    suspend fun deleteProfileImage(): ProfileImageResponse
+
+    companion object {
+        fun createImagePart(uri: Uri, context: Context): MultipartBody.Part {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val file = File(context.cacheDir, "temp_image.jpg")
+            FileOutputStream(file).use { outputStream ->
+                inputStream?.copyTo(outputStream)
+            }
+
+            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+            return MultipartBody.Part.createFormData("image", file.name, requestFile)
+        }
+    }
 }
+
+data class ProfileImageResponse(
+    val success: Boolean,
+    val message: String,
+    val imageUrl: String?
+)
 
