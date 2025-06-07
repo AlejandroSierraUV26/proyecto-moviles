@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.proyecto.navigation.AppScreens
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.runtime.Composable
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,20 +24,19 @@ import com.example.proyecto.utils.DoubleBackToExitHandler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.painterResource
+import coil.compose.AsyncImage
 import com.example.proyecto.R
 
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    
-    // Estados para los errores
+
     var emailError by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf("") }
-    
-    // Estado para mostrar/ocultar contraseña
+
     var showPassword by remember { mutableStateOf(false) }
-    
+
     val viewModel: LoginViewModel = viewModel()
     val loginState by viewModel.loginState.collectAsStateWithLifecycle()
 
@@ -61,8 +59,8 @@ fun LoginScreen(navController: NavController) {
                         passwordError = "Usuario no registrado"
                     }
                     errorMessage.contains("credenciales") || errorMessage.contains("inválidas") -> {
-                        emailError = "Su usuario/correo o contraseña son erróneos"
-                        passwordError = "Su usuario/correo o contraseña son erróneos"
+                        emailError = "Correo o contraseña erróneos"
+                        passwordError = "Correo o contraseña erróneos"
                     }
                     else -> {
                         emailError = "Error al iniciar sesión"
@@ -89,60 +87,42 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Campo de correo/usuario
         OutlinedTextField(
             value = email,
-            onValueChange = { 
+            onValueChange = {
                 email = it
                 emailError = if (it.isEmpty()) "Campo obligatorio" else ""
             },
-            label = {
-                Text(
-                    text = "Correo o Usuario",
-                    fontSize = 16.sp)
-            },
-            textStyle = TextStyle(fontSize = 14.sp), // ← Tamaño más pequeño dentro del input
-            modifier = Modifier
-                .fillMaxWidth(),
+            label = { Text("Correo o Usuario", fontSize = 16.sp) },
+            textStyle = TextStyle(fontSize = 14.sp),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             singleLine = true,
             isError = emailError.isNotEmpty(),
             supportingText = {
                 if (emailError.isNotEmpty()) {
-                    Text(
-                        text = emailError,
-                        color = Color.Red
-                    )
+                    Text(text = emailError, color = Color.Red)
                 }
             }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Campo de contraseña
         OutlinedTextField(
             value = password,
-            onValueChange = { 
+            onValueChange = {
                 password = it
                 passwordError = if (it.isEmpty()) "Campo obligatorio" else ""
             },
-            label = {
-                Text(
-                    text = "Contraseña",
-                    fontSize = 16.sp)
-            },
+            label = { Text("Contraseña", fontSize = 16.sp) },
             textStyle = TextStyle(fontSize = 14.sp),
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             singleLine = true,
             isError = passwordError.isNotEmpty(),
             supportingText = {
                 if (passwordError.isNotEmpty()) {
-                    Text(
-                        text = passwordError,
-                        color = Color.Red
-                    )
+                    Text(text = passwordError, color = Color.Red)
                 }
             },
             visualTransformation = if (showPassword) {
@@ -161,6 +141,7 @@ fun LoginScreen(navController: NavController) {
                 }
             }
         )
+
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
@@ -169,38 +150,56 @@ fun LoginScreen(navController: NavController) {
             color = Color(0xFF5678C1),
             modifier = Modifier
                 .align(Alignment.Start)
-                .clickable { navController.navigate(AppScreens.RecuperScreen.route)}
+                .clickable { navController.navigate(AppScreens.RecuperScreen.route) }
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón de ingresar
+        Text(
+            text = "¿No tienes cuenta?",
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Button(
             onClick = {
-                // Limpiar errores previos
+                navController.navigate(AppScreens.RegisterScreen.route) {
+                    popUpTo(AppScreens.LoginScreen.route) { inclusive = true }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(50)
+        ) {
+            Text("Regístrate", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
                 emailError = ""
                 passwordError = ""
-                
-                // Validar campos antes de intentar login
+
                 var hasError = false
-                
                 if (email.isEmpty()) {
                     emailError = "Campo obligatorio"
                     hasError = true
                 }
-                
                 if (password.isEmpty()) {
                     passwordError = "Campo obligatorio"
                     hasError = true
                 }
-                
+
                 if (!hasError) {
                     viewModel.loginUser(email, password)
                 }
             },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF052659)
-            ),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -219,29 +218,27 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "¿No tienes cuenta?",
-            fontWeight = FontWeight.Medium,
-            fontSize = 16.sp 
-        )
+        // Botón de registro con Google
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
+        OutlinedButton(
             onClick = {
-                navController.navigate(AppScreens.RegisterScreen.route) {
-                    popUpTo(AppScreens.LoginScreen.route) { inclusive = true }
-                }
+                // Aquí iría la lógica de autenticación con Google
             },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF052659)
-            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            shape = RoundedCornerShape(50)
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
         ) {
-            Text("Regístrate", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            AsyncImage(
+                model = "https://developers.google.com/identity/images/g-logo.png",
+                contentDescription = "Google Logo",
+                modifier = Modifier
+                    .size(24.dp)
+                    .padding(end = 8.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Registrarse con Google", fontWeight = FontWeight.Medium, fontSize = 18.sp)
         }
     }
 }
