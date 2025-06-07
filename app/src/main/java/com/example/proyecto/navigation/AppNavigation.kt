@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.proyecto.navigation.AppScreens.ResultadosModuloScreen
 import com.example.proyecto.ui.auth.LoginScreen
+import com.example.proyecto.ui.auth.PasswordRecoveryViewModel
 import com.example.proyecto.ui.auth.RecuperScreen
 import com.example.proyecto.ui.auth.RegisterScreen
 import com.example.proyecto.ui.splash.SplashScreen
@@ -38,6 +39,7 @@ import com.example.proyecto.ui.modules.ResultadosModuloScreen
 import com.example.proyecto.ui.modules.ResultadosViewModel
 import com.example.proyecto.ui.modules.SeleCourseScreen
 import com.example.proyecto.ui.modules.SetPreguntasScreen
+import kotlinx.coroutines.delay
 
 @Composable
 fun AppNavigation() {
@@ -85,6 +87,20 @@ fun AppNavigation() {
             }
             composable(AppScreens.RegisterScreen.route) {
                 RegisterScreen(navController)
+            }
+            composable(AppScreens.RecuperScreen.route) {
+                val viewModel: PasswordRecoveryViewModel = viewModel()
+
+                LaunchedEffect(viewModel.successMessage) {
+                    if (viewModel.successMessage == "Contraseña restablecida correctamente") {
+                        delay(2000)
+                        navController.navigate(AppScreens.LoginScreen.route) {
+                            popUpTo(AppScreens.RecuperScreen.route) { inclusive = true }
+                        }
+                    }
+                }
+
+                RecuperScreen(navController, viewModel)
             }
             composable(AppScreens.HomeScreen.route) {
                 HomeScreen(navController, viewModel = homeViewModel)

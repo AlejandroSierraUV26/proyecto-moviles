@@ -68,7 +68,8 @@ dependencies {
     implementation("com.patrykandpatrick.vico:compose:$vicoVersion")
     implementation("com.patrykandpatrick.vico:compose-m3:$vicoVersion")
     implementation("com.patrykandpatrick.vico:core:$vicoVersion")
-
+    implementation ("androidx.compose.material3:material3:1.1.1")// o versión más reciente
+    implementation ("androidx.compose.material:material-icons-extended:1.5.4") // para íconos
 
     // Retrofit y OkHttp
     implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")

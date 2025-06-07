@@ -92,8 +92,14 @@ interface ApiService {
     @POST("api/exams/questions/create")
     suspend fun createQuestion(@Body request: QuestionRequest): Response<ApiResponse>
 
-    @POST("submit") // ← Ruta correcta
-    suspend fun evaluateExam(@Body submission: ExamSubmission): Response<ExamResult>
+    @POST("/api/exams/submit") // ← Ruta correcta
+    suspend fun evaluateExam(@Body submission: ExamSubmission): Response<ExamFeedbackResult>
+
+    @POST("api/password/forgot")
+    suspend fun sendPasswordResetEmail(@Body request: Map<String, String>): ApiResponse
+
+    @POST("api/password/reset")
+    suspend fun resetPassword(@Body request: Map<String, String>): ApiResponse
 
     @GET("api/profile/image")
     suspend fun getProfileImage(): ProfileImageResponse
@@ -113,6 +119,7 @@ interface ApiService {
     @DELETE("api/profile/image")
     suspend fun deleteProfileImage(): ProfileImageResponse
 
+
     companion object {
         fun createImagePart(uri: Uri, context: Context): MultipartBody.Part {
             val inputStream = context.contentResolver.openInputStream(uri)
@@ -125,9 +132,6 @@ interface ApiService {
             return MultipartBody.Part.createFormData("image", file.name, requestFile)
         }
     }
-
-    @POST("/api/exams/submit") // ← Ruta correcta
-    suspend fun evaluateExam(@Body submission: ExamSubmission): Response<ExamFeedbackResult>
 }
 
 data class ProfileImageResponse(

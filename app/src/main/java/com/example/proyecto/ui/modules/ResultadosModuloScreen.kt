@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlinx.serialization.json.Json
@@ -49,7 +50,7 @@ fun ResultadosModuloScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Resultados del Módulo") },
+                title = { Text("Resultados del Examen") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -83,26 +84,61 @@ fun ResultadosModuloScreen(
 
                 else -> {
                     examResult?.let { result ->
-                        // Encabezado
-                        Text(
-                            "Resultados del Examen",
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
 
-                        Text(
-                            "Puntuación: ${result.correctAnswers}/${result.totalQuestions} (${result.percentage}%)",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = when {
-                                result.correctAnswers >= 8 -> Color(0xFF4CAF50)
-                                result.percentage >= 50 -> Color(0xFFFFC107)
-                                else -> Color(0xFFF44336)
-                            },
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
+                        // NUEVO BLOQUE DE PUNTUACIÓN Y PORCENTAJE
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Puntuación", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Card(
+                                    modifier = Modifier
+                                        .padding(top = 4.dp)
+                                        .width(80.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F7FA))
+                                )
+                                {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),  // o un tamaño fijo, ej: .width(80.dp)
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${result.correctAnswers}/${result.totalQuestions}",
+                                            modifier = Modifier.padding(16.dp),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = Color.Black
+                                        )
+                                    }
+                                }
+                            }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Porcentaje", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Card(
+                                    modifier = Modifier
+                                        .padding(top = 4.dp)
+                                        .width(80.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4))
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(),  // o un tamaño fijo, ej: .width(80.dp)
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${result.percentage}%",
+                                            modifier = Modifier.padding(16.dp),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = Color.Black
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
                             "Detalle por pregunta:",
@@ -120,14 +156,17 @@ fun ResultadosModuloScreen(
                                             Color.Red.copy(alpha = 0.1f)
                                     )
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
                                         Text(
-                                            item.questionText,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.Bold
+                                            text = item.questionText,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontSize = 20.sp,
+                                                lineHeight = 24.sp
+                                            ),
+                                            fontWeight = FontWeight.SemiBold
                                         )
 
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
 
                                         item.options.forEach { option ->
                                             val isSelected = option == item.selectedAnswer
@@ -135,6 +174,10 @@ fun ResultadosModuloScreen(
 
                                             Text(
                                                 text = option,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontSize = 20.sp,
+                                                    lineHeight = 24.sp
+                                                ),
                                                 color = when {
                                                     isCorrect -> Color.Green
                                                     isSelected && !isCorrect -> Color.Red
@@ -144,12 +187,14 @@ fun ResultadosModuloScreen(
                                             )
                                         }
 
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
 
                                         Text(
                                             "Respuesta correcta: ${item.correctAnswer}",
                                             style = MaterialTheme.typography.bodySmall.copy(
-                                                fontStyle = FontStyle.Italic
+                                                fontStyle = FontStyle.Italic,
+                                                fontSize = 20.sp,
+                                                lineHeight = 24.sp
                                             ),
                                             color = MaterialTheme.colorScheme.secondary
                                         )
