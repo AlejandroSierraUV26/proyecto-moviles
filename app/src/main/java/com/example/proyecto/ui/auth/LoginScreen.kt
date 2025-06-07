@@ -1,5 +1,6 @@
 package com.example.proyecto.ui.auth
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -155,31 +156,6 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "¿No tienes cuenta?",
-            fontWeight = FontWeight.Medium,
-            fontSize = 16.sp
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = {
-                navController.navigate(AppScreens.RegisterScreen.route) {
-                    popUpTo(AppScreens.LoginScreen.route) { inclusive = true }
-                }
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(50)
-        ) {
-            Text("Regístrate", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         Button(
             onClick = {
                 emailError = ""
@@ -221,14 +197,16 @@ fun LoginScreen(navController: NavController) {
         // Botón de registro con Google
 
         OutlinedButton(
-            onClick = {
-                // Aquí iría la lógica de autenticación con Google
-            },
+            onClick = {},
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
             shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.onBackground // ✅ se adapta al modo
+            )
         ) {
             AsyncImage(
                 model = "https://developers.google.com/identity/images/g-logo.png",
@@ -238,7 +216,34 @@ fun LoginScreen(navController: NavController) {
                     .padding(end = 8.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Registrarse con Google", fontWeight = FontWeight.Medium, fontSize = 18.sp)
+            Text(
+                text = "Registrarse con Google",
+                fontWeight = FontWeight.Medium,
+                fontSize = 18.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "¿No tienes cuenta?",
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                navController.navigate(AppScreens.RegisterScreen.route) {
+                    popUpTo(AppScreens.LoginScreen.route) { inclusive = true }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(50)
+        ) {
+            Text("Regístrate", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
     }
 }
