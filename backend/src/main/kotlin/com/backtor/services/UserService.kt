@@ -475,7 +475,6 @@ class UserService {
             val userId = user[UserTable.id]
             val today = LocalDate.now()
 
-            // Verificar si ya existe un registro de experiencia para hoy
             val todayExp = UserExperienceTable
                 .select {
                     (UserExperienceTable.userId eq userId) and
@@ -484,45 +483,39 @@ class UserService {
                 .firstOrNull()
 
             if (todayExp != null) {
-                // Sumar puntos al registro existente de hoy
                 UserExperienceTable.update({ UserExperienceTable.id eq todayExp[UserExperienceTable.id] }) {
                     it[experiencePoints] = todayExp[UserExperienceTable.experiencePoints] + points
                     it[collectedAt] = LocalDateTime.now()
                 }
             } else {
-                // Insertar nuevo registro
                 UserExperienceTable.insert {
                     it[UserExperienceTable.userId] = userId
                     it[experiencePoints] = points
                     it[collectedAt] = LocalDateTime.now()
                 }
-
-                // Verificar los días distintos registrados y mantener solo los últimos 7
-                val distinctDates = UserExperienceTable
-                    .select { UserExperienceTable.userId eq userId }
-                    .map { it[UserExperienceTable.collectedAt].toLocalDate() }
-                    .distinct()
-                    .sortedDescending()
-
-                if (distinctDates.size > 7) {
-                    val cutoffDate = distinctDates[7]
-
-                    val rowsToDelete = UserExperienceTable
-                        .select { UserExperienceTable.userId eq userId }
-                        .filter {
-                            it[UserExperienceTable.collectedAt].toLocalDate() < cutoffDate
-                        }
-
-                    rowsToDelete.forEach { row ->
-                        UserExperienceTable.deleteWhere { UserExperienceTable.id eq row[UserExperienceTable.id] }
-                    }
-
-                }
             }
 
-            // Actualizar experiencia total acumulada
             UserTable.update({ UserTable.id eq userId }) {
                 it[experienceTotal] = user[UserTable.experienceTotal] + points
+            }
+
+            val distinctDates = UserExperienceTable
+                .select { UserExperienceTable.userId eq userId }
+                .map { it[UserExperienceTable.collectedAt].toLocalDate() }
+                .distinct()
+                .sortedDescending()
+
+            if (distinctDates.size > 7) {
+                val cutoffDate = distinctDates[7]
+                val rowsToDelete = UserExperienceTable
+                    .select {
+                        (UserExperienceTable.userId eq userId) and
+                                (UserExperienceTable.collectedAt less cutoffDate.atStartOfDay())
+                    }
+
+                rowsToDelete.forEach { row ->
+                    UserExperienceTable.deleteWhere { UserExperienceTable.id eq row[UserExperienceTable.id] }
+                }
             }
 
             true
@@ -642,4 +635,35 @@ class UserService {
                 )
             }
     }
+    fun registerUserViaGoogle(email: String, username: String, profileImageUrl: String?): UserProfile {
+        transaction {
+            UserTable.insert {
+                it[UserTable.email] = email
+                it[UserTable.passwordHash] = "" // Contraseña vacía para Google
+                it[UserTable.username] = username
+                it[UserTable.profileImageUrl] = profileImageUrl
+                it[UserTable.streak] = 0
+                it[UserTable.lastActiveDate] = LocalDateTime.now()
+                it[UserTable.createdAt] = LocalDateTime.now()
+            }
+        }
+        return UserProfile(
+            email = email,
+            username = username,
+            streak = 0,
+            experienceScore = 0,
+            experienceTotal = 0,
+            lastActivity = LocalDateTime.now(),
+            createdAt = LocalDateTime.now()
+        )
+    }
+    suspend fun findOrCreateUserByEmail(email: String, name: String, profilePic: String?): UserProfile {
+        val existingUser = findByEmail(email)
+        return if (existingUser != null) {
+            existingUser
+        } else {
+            registerUserViaGoogle(email, name, profilePic)
+        }
+    }
+
 }

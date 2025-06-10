@@ -120,6 +120,34 @@ fun Route.examRoutes() {
         // ENVÍO DE RESPUESTAS PARA EVALUAR EXAMEN
         // PROGRESO DEL USUARIO
         authenticate("auth-jwt") {
+            post("/diagnostic") {
+                val email = call.getEmailFromToken() ?: return@post call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(false, "No autorizado")
+                )
+
+                val submission = call.receive<DiagnosticSubmission>()
+
+                // Validar que el nivel sea uno de los permitidos
+                if (!listOf("basic", "intermediate", "advanced").contains(submission.level.toLowerCase())) {
+                    return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        ApiResponse(false, "Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
+                    )
+                }
+
+                val (startingSection, hasIncompleteSection) = examService.evaluateDiagnosticQuiz(email, submission)
+
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "success" to true,
+                    "startingSection" to startingSection,
+                    "hasIncompleteSection" to hasIncompleteSection,
+                    "levelTested" to submission.level,
+                    "message" to if (hasIncompleteSection)
+                        "Según tu nivel ${submission.level}, debes comenzar en la sección $startingSection"
+                    else "¡Felicidades! Dominas todo el nivel ${submission.level} del curso"
+                ))
+            }
             get("/progress/{courseId}") {
                 val email = call.getEmailFromToken() ?: return@get call.respond(
                     HttpStatusCode.Unauthorized,

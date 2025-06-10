@@ -364,4 +364,77 @@ class ExamService {
 
         CourseProgressResponse(courseProgress, sections)
     }
+
+    fun evaluateDiagnosticQuiz(email: String, submission: DiagnosticSubmission): Pair<String, Boolean> = transaction {
+        val userId = UserTable
+            .select { UserTable.email eq email }
+            .map { it[UserTable.id] }
+            .firstOrNull() ?: throw IllegalArgumentException("Usuario no encontrado")
+
+        // Determinar los niveles a evaluar según la selección del usuario
+        val levelsToEvaluate = when (submission.level.toLowerCase()) {
+            "basic" -> listOf(1)
+            "intermediate" -> listOf(2, 3)
+            "advanced" -> listOf(4)
+            else -> throw IllegalArgumentException("Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
+        }
+
+        val sections = SectionTable
+            .select {
+                (SectionTable.courseId eq submission.courseId) and
+                        (SectionTable.difficultyLevel inList levelsToEvaluate)
+            }
+            .orderBy(SectionTable.difficultyLevel to SortOrder.ASC)
+            .toList()
+
+        var startingSectionTitle = "Nivel completo"
+        var hasIncompleteSection = false
+
+        for (section in sections) {
+            val sectionId = section[SectionTable.id]
+            val exams = ExamTable.select { ExamTable.sectionId eq sectionId }.toList()
+            var totalQuestions = 0
+            var correctAnswers = 0
+
+            for (exam in exams) {
+                val examId = exam[ExamTable.id]
+                val questions = QuestionTable.select { QuestionTable.examId eq examId }
+
+                for (q in questions) {
+                    val qid = q[QuestionTable.id]
+                    val userAnswer = submission.answers[qid]
+                    val correctAnswer = q[QuestionTable.correctAnswer]
+                    if (userAnswer != null) {
+                        totalQuestions++
+                        if (userAnswer == correctAnswer) correctAnswers++
+                    }
+                }
+
+                val scorePercentage = if (totalQuestions > 0) (correctAnswers * 100) / totalQuestions else 0
+                val isCompleted = scorePercentage >= 70
+
+                UserExamProgressTable.insert {
+                    it[UserExamProgressTable.userId] = userId
+                    it[UserExamProgressTable.examId] = examId
+                    it[questionsAnswered] = totalQuestions
+                    it[questionsCorrect] = correctAnswers
+                    it[completed] = isCompleted
+                    it[lastAttemptDate] = LocalDateTime.now()
+                    it[bestScore] = scorePercentage
+                }
+            }
+
+            val sectionScore = if (totalQuestions == 0) 0.0 else (correctAnswers.toDouble() / totalQuestions) * 100
+            if (sectionScore < 70.0 && !hasIncompleteSection) {
+                startingSectionTitle = section[SectionTable.title]
+                hasIncompleteSection = true
+            }
+        }
+
+        // Actualizar progreso general del curso solo para las secciones evaluadas
+        updateCourseProgress(userId, submission.courseId)
+
+        startingSectionTitle to hasIncompleteSection
+    }
+
 }

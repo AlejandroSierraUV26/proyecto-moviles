@@ -20,6 +20,7 @@ class SecurePreferences(context: Context) {
     companion object {
         private const val KEY_JWT_TOKEN = "jwt_token"
         private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_USERNAME = "username"
     }
 
     fun saveToken(token: String) {
@@ -36,6 +37,14 @@ class SecurePreferences(context: Context) {
 
     fun getUserEmail(): String? {
         return sharedPreferences.getString(KEY_USER_EMAIL, null)
+    }
+
+    fun saveUsername(username: String) {
+        sharedPreferences.edit().putString(KEY_USERNAME, username).apply()
+    }
+
+    fun getUsername(): String? {
+        return sharedPreferences.getString(KEY_USERNAME, null)
     }
 
     fun clearSession() {

@@ -32,6 +32,10 @@ import kotlinx.coroutines.launch
 import org.mindrot.jbcrypt.BCrypt
 import com.backtor.security.JwtService
 
+import com.backtor.models.GoogleAuthRequest
+import com.backtor.security.GoogleIdTokenVerifier
+import com.backtor.models.ApiResponseWithData
+
 
 // Crea instancia del servicio
 val userService = UserService()
@@ -42,6 +46,51 @@ fun ApplicationCall.getEmailFromToken(): String? =
 
 fun Route.userRoutes() {
     route("/api") {
+            post("/auth/google") {
+                val request = call.receive<GoogleAuthRequest>()
+                val idToken = request.idToken
+    
+                // Verifica el token de Google
+                val payload = GoogleIdTokenVerifier.verifyToken(idToken)
+                if (payload == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ApiResponse(false, "Invalid Google token"))
+                    return@post
+                }
+    
+                val email = payload.email
+                val name = payload["name"] as? String ?: email.substringBefore("@")
+                val pictureUrl = payload["picture"] as? String
+    
+                val user = userService.findByIdentifier(email)
+    
+                val finalUser = if (user == null) {
+                    // Usuario no existe, lo registramos
+                    userService.registerUserViaGoogle(
+                        email = email,
+                        username = name,
+                        profileImageUrl = pictureUrl
+                    )
+                } else {
+                    user // Ya existe
+                }
+    
+                // Genera JWT como en login normal
+                val token = JwtService.generateToken(email)
+    
+                call.respond(
+                    ApiResponseWithData(
+                        success = true,
+                        message = "Inicio de sesión con Google exitoso",
+                        data = mapOf(
+                            "token" to token,
+                            "username" to finalUser.username,
+                            "email" to finalUser.email
+                        )
+                    )
+                )
+            }
+
+
         post("/register"){
             val userRequest = call.receive<UserRegisterRequest>()
 

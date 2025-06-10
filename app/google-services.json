@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "985445127962",
+    "project_id": "knowit-18b2c",
+    "storage_bucket": "knowit-18b2c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:985445127962:android:c28cf26a9eb8f449af7ea3",
+        "android_client_info": {
+          "package_name": "com.example.proyecto"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdNHbrcGkQO0KTC36uzmXZSWVlo821pcI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

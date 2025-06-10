@@ -11,6 +11,7 @@ application {
 
 repositories {
     mavenCentral()
+    google()
     maven("https://repo.jetbrains.space/public/p/ktor/eap")
     maven("https://repo.jetbrains.space/public/p/exposed/maven")
 }
@@ -59,6 +60,14 @@ dependencies {
     //Cloudinary
     //implementation("com.cloudinary:kotlin-url-gen:1.7.0")
     implementation("com.cloudinary:cloudinary-http44:1.37.0")
+
+    // Google API Client
+    implementation("com.google.api-client:google-api-client:2.2.0")
+
+    implementation("com.google.oauth-client:google-oauth-client-jetty:1.34.1")
+    implementation("com.google.apis:google-api-services-oauth2:v2-rev157-1.25.0")
+
+
 
 }
 

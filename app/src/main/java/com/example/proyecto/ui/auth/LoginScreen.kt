@@ -49,6 +49,15 @@ import kotlinx.coroutines.launch
 // En tu ViewModel o clase de configuración
 private const val ANDROID_CLIENT_ID = "968858227331-340cl67hmbnmf0ov6058hg9sarp1bi8k.apps.googleusercontent.com"
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.*
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.tasks.Task
+import android.app.Activity
+import android.util.Log
+import androidx.compose.ui.platform.LocalContext
+
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
@@ -130,6 +139,45 @@ fun LoginScreen(navController: NavController) {
 
     val googleSignInClient = GoogleSignIn.getClient(context, gso)
 
+    // Configuración de Google Sign-In
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val activity = context as Activity
+    // Nuevo estado para el idToken
+    var googleIdToken by remember { mutableStateOf<String?>(null) }
+
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        val idToken = try {
+            val account = task.getResult(ApiException::class.java)
+            account.idToken
+        } catch (e: ApiException) {
+            Log.e("GoogleSignIn", "Google sign-in failed: ${e.message}")
+            null
+        }
+        if (idToken != null) {
+            googleIdToken = idToken // Actualiza el estado
+        } else {
+            Log.e("GoogleSignIn", "ID Token is null")
+        }
+    }
+
+// Efecto para manejar el idToken cuando cambia
+    LaunchedEffect(googleIdToken) {
+        googleIdToken?.let { token ->
+            snackbarHostState.showSnackbar("ID Token: ${token.take(40)}...")
+            viewModel.loginWithGoogle(token)
+            googleIdToken = null // Limpia el estado después de usarlo
+        }
+    }
+
+    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        .requestIdToken("968858227331-rmh6rbmoq58pao5birsh7pcl72ielda6.apps.googleusercontent.com") // <-- tu Client ID
+        .requestEmail()
+        .build()
+
+    val googleSignInClient = GoogleSignIn.getClient(context, gso)
     DoubleBackToExitHandler {
         android.os.Process.killProcess(android.os.Process.myPid())
     }
@@ -218,7 +266,21 @@ fun LoginScreen(navController: NavController) {
                 }
             }
         )
+        Spacer(modifier = Modifier.height(24.dp))
 
+        Button(
+            onClick = {
+                val signInIntent = googleSignInClient.signInIntent
+                launcher.launch(signInIntent)
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDB4437)), // Rojo de Google
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(50)
+        ) {
+            Text("Continuar con Google", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
@@ -361,6 +423,13 @@ fun LoginScreen(navController: NavController) {
         ) {
             Text("Regístrate", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 16.dp)
+        )
+
     }
 }
 
