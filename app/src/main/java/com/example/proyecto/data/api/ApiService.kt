@@ -9,6 +9,7 @@ import com.example.proyecto.data.models.LoginResponse
 import com.example.proyecto.data.models.RegisterResponse
 import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
+import com.example.proyecto.data.models.ApiResponseWithData
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
@@ -17,6 +18,7 @@ import com.example.proyecto.data.models.ExperienceTotalResponse
 import com.example.proyecto.data.models.ExamFeedbackResult
 import com.example.proyecto.data.models.ExamResult
 import com.example.proyecto.data.models.ExamSubmission
+import com.example.proyecto.data.models.GoogleAuthResponse
 import com.example.proyecto.data.models.Question
 import com.example.proyecto.data.models.QuestionRequest
 import retrofit2.Response
@@ -36,6 +38,7 @@ import retrofit2.http.Multipart
 import retrofit2.http.Part
 import java.io.File
 import java.io.FileOutputStream
+import com.example.proyecto.data.models.GoogleAuthRequest
 
 interface ApiService {
     @POST("api/register")
@@ -44,12 +47,14 @@ interface ApiService {
     @POST("api/login")
     suspend fun loginUser(@Body request: UserLoginRequest): Response<LoginResponse>
 
+    @POST("/api/auth/google")
+    suspend fun authWithGoogle(@Body request: GoogleAuthRequest): Response<ApiResponseWithData<GoogleAuthResponse>>
+
     @GET("api/profile")
     suspend fun getUserProfile(): Response<UserProfile>
 
     @PUT("api/profile/update")
-    suspend fun updateProfile(
-        @Body request: Map<String, String>): Response<ApiResponse>
+    suspend fun updateProfile(@Body request: Map<String, String>): Response<ApiResponse>
 
     @DELETE("api/delete")
     suspend fun deleteAccount(

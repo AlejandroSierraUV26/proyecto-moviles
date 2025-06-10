@@ -1,7 +1,11 @@
 package com.example.proyecto.ui.auth
 
+import android.app.Activity
+import android.content.Context
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,9 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -27,24 +31,131 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
 import com.example.proyecto.R
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import android.widget.Toast
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.tasks.Task
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+
+// En tu ViewModel o clase de configuración
+private const val ANDROID_CLIENT_ID = "968858227331-340cl67hmbnmf0ov6058hg9sarp1bi8k.apps.googleusercontent.com"
 
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
     var emailError by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf("") }
-
     var showPassword by remember { mutableStateOf(false) }
+    var googleSignInError by remember { mutableStateOf<String?>(null) }
 
     val viewModel: LoginViewModel = viewModel()
     val loginState by viewModel.loginState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    var googleIdToken by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    // Configuración del lanzador de Google Sign-In
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        when (result.resultCode) {
+            Activity.RESULT_OK -> {
+                try {
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    val account = task.getResult(ApiException::class.java)
+
+                    account.idToken?.let { token ->
+                        Log.d("GOOGLE_AUTH", "Token length: ${token.length}")
+                        viewModel.loginWithGoogle(token)
+                    } ?: run {
+                        Log.e("GOOGLE_AUTH", "Token is null")
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Error: No se pudo obtener token de Google")
+                        }
+                    }
+                } catch (e: ApiException) {
+                    Log.e("GOOGLE_AUTH", "SignInResult: failed code=${e.statusCode}", e)
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Error en autenticación: ${e.statusCode}")
+                    }
+                }
+            }
+            Activity.RESULT_CANCELED -> {
+                Log.w("GOOGLE_AUTH", "SignInResult: canceled")
+                scope.launch {
+                    snackbarHostState.showSnackbar("Autenticación cancelada")
+                }
+
+                // Depuración adicional:
+                result.data?.extras?.keySet()?.forEach { key ->
+                    Log.d("GOOGLE_AUTH_DEBUG", "Extra key: $key, value: ${result.data?.extras?.get(key)}")
+                }
+            }
+            else -> {
+                Log.e("GOOGLE_AUTH", "SignInResult: unknown result code ${result.resultCode}")
+                scope.launch {
+                    snackbarHostState.showSnackbar("Error desconocido: ${result.resultCode}")
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(googleIdToken) {
+        googleIdToken?.let { token ->
+            Log.d("GOOGLE_AUTH", "🚀 Token recibido en LaunchedEffect. Iniciando autenticación...")
+            viewModel.loginWithGoogle(token)
+            delay(500) // Pequeña pausa si necesario
+            googleIdToken = null
+        }
+    }
+
+
+// En tu Activity/Composable
+    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        .requestIdToken(ANDROID_CLIENT_ID) // Client ID de Android
+        .requestEmail()
+        .build()
+
+    val googleSignInClient = GoogleSignIn.getClient(context, gso)
 
     DoubleBackToExitHandler {
         android.os.Process.killProcess(android.os.Process.myPid())
     }
 
+    fun verifyGoogleSignInConfig(context: Context) {
+        try {
+            val options = GoogleSignInOptions.DEFAULT_SIGN_IN
+            val account = GoogleSignIn.getLastSignedInAccount(context)
+
+            if (account == null) {
+                Log.d("GOOGLE_AUTH", "No hay cuenta registrada")
+            } else {
+                Log.d("GOOGLE_AUTH", "Cuenta: ${account.email}")
+            }
+
+            val apiAvailability = GoogleApiAvailability.getInstance()
+            val resultCode = apiAvailability.isGooglePlayServicesAvailable(context)
+            if (resultCode != ConnectionResult.SUCCESS) {
+                Log.e("GOOGLE_AUTH", "Google Play Services no disponibles")
+            }
+        } catch (e: Exception) {
+            Log.e("GOOGLE_AUTH", "Error en configuración", e)
+        }
+    }
+
+    // Manejo del estado del login
     LaunchedEffect(loginState) {
         when (loginState) {
             is LoginState.Success -> {
@@ -88,6 +199,7 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Campos de email y contraseña (se mantienen igual)
         OutlinedTextField(
             value = email,
             onValueChange = {
@@ -156,6 +268,7 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Botón de login normal
         Button(
             onClick = {
                 emailError = ""
@@ -194,10 +307,12 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Botón de registro con Google
-
+        // Botón de Google Sign-In mejorado
         OutlinedButton(
-            onClick = {},
+            onClick = {
+                val signInIntent = googleSignInClient.signInIntent
+                launcher.launch(signInIntent)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -205,7 +320,7 @@ fun LoginScreen(navController: NavController) {
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = MaterialTheme.colorScheme.background,
-                contentColor = MaterialTheme.colorScheme.onBackground // ✅ se adapta al modo
+                contentColor = MaterialTheme.colorScheme.onBackground
             )
         ) {
             AsyncImage(
@@ -217,11 +332,12 @@ fun LoginScreen(navController: NavController) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Registrarse con Google",
+                text = "Continuar con Google",
                 fontWeight = FontWeight.Medium,
                 fontSize = 18.sp
             )
         }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(

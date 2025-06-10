@@ -1,6 +1,7 @@
 package com.example.proyecto.data.api
 
 import android.content.Context
+import android.util.Log
 import com.example.proyecto.utils.SecurePreferences
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
@@ -41,12 +42,14 @@ object RetrofitClient {
         createRetrofitInstance()
     }
 
+
     private fun createRetrofitInstance() {
         val authInterceptor = object : Interceptor {
             @Throws(IOException::class)
             override fun intercept(chain: Interceptor.Chain): Response {
                 val originalRequest = chain.request()
                 val path = originalRequest.url.encodedPath
+                Log.d("API_REQUEST", "📡 Enviando petición a $path")
 
                 // Si es auth o recuperación de contraseña, NO agregar token
                 if (isAuthRequest(originalRequest) || isPasswordRecoveryRequest(originalRequest)) {
