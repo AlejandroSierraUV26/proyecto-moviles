@@ -5,6 +5,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
+import java.net.URLEncoder
 
 class ExamService {
     // ─────────────── CURSOS ───────────────
@@ -121,6 +122,30 @@ class ExamService {
     fun deleteExam(id: Int): Boolean = transaction {
         ExamTable.deleteWhere { ExamTable.id eq id } > 0
     }
+    //─────────────── RECOMENDACIONES ───────────────
+    private fun generateScholarRecommendation(topic: String): List<ResourceRecommendation> {
+        val encoded = URLEncoder.encode(topic, "UTF-8")
+        val url = "https://scholar.google.com/scholar?q=$encoded"
+        return listOf(ResourceRecommendation("Buscar en Google Scholar", url, "Google Scholar"))
+    }
+    private fun generateYoutubeRecommendation(topic: String): List<ResourceRecommendation> {
+        val encoded = URLEncoder.encode(topic, "UTF-8")
+        val url = "https://www.youtube.com/results?search_query=$encoded&sp=CAM%253D" // Filtro: orden por vistas
+
+        return listOf(
+            ResourceRecommendation("Ver videos populares en YouTube", url, "YouTube")
+        )
+    }
+    private fun getMotivationalMessage(score: Int): String {
+        return if (score < 70) {
+            "¡No te rindas! Aunque no alcanzaste el 70%, te dejamos recursos para reforzar y dominar el tema. ¡Tú puedes!"
+        } else {
+            "¡Felicidades! Superaste el reto. Sigue estudiando con ese mismo entusiasmo, ¡vas por excelente camino!"
+        }
+    }
+    private fun generateRecommendationsForTopic(topic: String): List<ResourceRecommendation> {
+        return generateYoutubeRecommendation(topic) + generateScholarRecommendation(topic)
+    }
     // ─────────────── PREGUNTAS ───────────────
     fun createQuestion(request: QuestionRequest): Int = transaction {
         val exam = ExamTable.select {
@@ -183,15 +208,21 @@ class ExamService {
     // ─────────────── EVALUACIÓN ───────────────
     fun evaluateExam(submission: ExamSubmission): ExamFeedbackResult = transaction {
         val examId = submission.examId
-        val examExists = ExamTable.select { ExamTable.id eq examId }.count() > 0
-        if (!examExists) throw IllegalArgumentException("Examen no encontrado")
+
+        val examRow = ExamTable.select { ExamTable.id eq examId }.firstOrNull()
+            ?: throw IllegalArgumentException("Examen no encontrado")
+
+        val examTitle = examRow[ExamTable.title]
+
         val feedbackList = submission.answers.mapNotNull { answer ->
             val row = QuestionTable.select {
                 (QuestionTable.id eq answer.questionId) and
                         (QuestionTable.examId eq examId)
             }.firstOrNull() ?: return@mapNotNull null
+
             val correct = row[QuestionTable.correctAnswer]
             val options = row[QuestionTable.options].split("||")
+
             AnswerFeedback(
                 questionId = answer.questionId,
                 questionText = row[QuestionTable.questionText],
@@ -204,9 +235,19 @@ class ExamService {
         val correct = feedbackList.count { it.isCorrect }
         val total = feedbackList.size
         val percentage = if (total > 0) (correct * 100) / total else 0
-        ExamFeedbackResult(feedbackList, correct, total, percentage)
+        val recommendations = if (percentage < 70) {
+            generateRecommendationsForTopic(examTitle)
+        } else emptyList()
+        val motivationalMessage = getMotivationalMessage(percentage)
+        ExamFeedbackResult(
+            feedbackList = feedbackList,
+            correct = correct,
+            total = total,
+            percentage = percentage,
+            recommendations = recommendations,
+            motivationalMessage = motivationalMessage
+        )
     }
-
     // ─────────────── PROGRESO DEL USUARIO ───────────────
     fun saveExamProgress(email: String, submission: ExamSubmission, result: ExamFeedbackResult): Boolean = transaction {
         val userId = UserTable
@@ -223,7 +264,6 @@ class ExamService {
 
         val scorePercentage = result.percentage
         val isCompleted = scorePercentage >= 70 || (existingProgress?.get(UserExamProgressTable.completed) == true)
-
         if (existingProgress == null) {
             UserExamProgressTable.insert {
                 it[UserExamProgressTable.userId] = userId
@@ -246,31 +286,25 @@ class ExamService {
                 it[UserExamProgressTable.bestScore] = maxOf(existingProgress[UserExamProgressTable.bestScore], scorePercentage)
             }
         }
-
         updateCourseProgress(userId, submission.examId)
         true
     }
-
     private fun updateCourseProgress(userId: Int, examId: Int) = transaction {
         // Obtener el curso asociado a este examen
         val courseId = (ExamTable innerJoin SectionTable)
             .select { ExamTable.id eq examId }
             .map { it[SectionTable.courseId] }
             .firstOrNull() ?: return@transaction
-
         // Obtener todas las secciones del curso
         val sections = SectionTable
             .select { SectionTable.courseId eq courseId }
             .map { it[SectionTable.id] }
-
         // Obtener todos los exámenes del curso
         val exams = ExamTable
             .select { ExamTable.sectionId inList sections }
             .map { it[ExamTable.id] }
-
         // Calcular progreso del curso
         val progress = calculateCourseProgress(userId, exams)
-
         // Actualizar o insertar en user_courses
         val existingRecord = UserCoursesTable
             .select {
@@ -278,7 +312,6 @@ class ExamService {
                         (UserCoursesTable.courseId eq courseId)
             }
             .firstOrNull()
-
         if (existingRecord == null) {
             UserCoursesTable.insert {
                 it[UserCoursesTable.userId] = userId
@@ -294,10 +327,8 @@ class ExamService {
             }
         }
     }
-
     private fun calculateCourseProgress(userId: Int, examIds: List<Int>): Int = transaction {
         if (examIds.isEmpty()) return@transaction 0
-
         // Obtener el progreso de todos los exámenes del curso
         val examProgresses = UserExamProgressTable
             .select {
@@ -305,20 +336,16 @@ class ExamService {
                         (UserExamProgressTable.examId inList examIds)
             }
             .map { it[UserExamProgressTable.examId] to it[UserExamProgressTable.completed] }
-
         // Calcular porcentaje de exámenes completados
         val completedExams = examProgresses.count { it.second }
         val totalExams = examIds.size
-
         ((completedExams * 100) / totalExams).coerceIn(0, 100)
     }
-
     fun getCourseProgress(email: String, courseId: Int): CourseProgressResponse = transaction {
         val userId = UserTable
             .select { UserTable.email eq email }
             .map { it[UserTable.id] }
             .firstOrNull() ?: return@transaction CourseProgressResponse(0, emptyList())
-
         // Obtener todas las secciones del curso
         val sections = SectionTable
             .select { SectionTable.courseId eq courseId }
@@ -330,7 +357,6 @@ class ExamService {
                     .select { ExamTable.sectionId eq sectionId }
                     .map { examRow ->
                         val examId = examRow[ExamTable.id]
-
                         // Obtener progreso del usuario para este examen
                         val progress = UserExamProgressTable
                             .select {
@@ -338,13 +364,13 @@ class ExamService {
                                         (UserExamProgressTable.examId eq examId)
                             }
                             .firstOrNull()
-
                         ExamProgress(
                             examId = examId,
                             title = examRow[ExamTable.title],
                             completed = progress?.get(UserExamProgressTable.completed) ?: false,
                             bestScore = progress?.get(UserExamProgressTable.bestScore) ?: 0,
-                            lastAttemptDate = progress?.get(UserExamProgressTable.lastAttemptDate)?.let { LocalDateTimeWrapper(it) }
+                            lastAttemptDate = progress?.get(UserExamProgressTable.lastAttemptDate)
+                                ?.let { LocalDateTimeWrapper(it) }
                         )
                     }
 
@@ -356,15 +382,12 @@ class ExamService {
                     totalExams = exams.size
                 )
             }
-
         // Calcular progreso general del curso
         val totalCompletedExams = sections.sumOf { it.completedExams }
         val totalExams = sections.sumOf { it.totalExams }
         val courseProgress = if (totalExams > 0) (totalCompletedExams * 100) / totalExams else 0
-
         CourseProgressResponse(courseProgress, sections)
     }
-
     fun evaluateDiagnosticQuiz(email: String, submission: DiagnosticSubmission): Pair<String, Boolean> = transaction {
         val userId = UserTable
             .select { UserTable.email eq email }
@@ -378,7 +401,6 @@ class ExamService {
             "advanced" -> listOf(4)
             else -> throw IllegalArgumentException("Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
         }
-
         val sections = SectionTable
             .select {
                 (SectionTable.courseId eq submission.courseId) and
@@ -386,20 +408,16 @@ class ExamService {
             }
             .orderBy(SectionTable.difficultyLevel to SortOrder.ASC)
             .toList()
-
         var startingSectionTitle = "Nivel completo"
         var hasIncompleteSection = false
-
         for (section in sections) {
             val sectionId = section[SectionTable.id]
             val exams = ExamTable.select { ExamTable.sectionId eq sectionId }.toList()
             var totalQuestions = 0
             var correctAnswers = 0
-
             for (exam in exams) {
                 val examId = exam[ExamTable.id]
                 val questions = QuestionTable.select { QuestionTable.examId eq examId }
-
                 for (q in questions) {
                     val qid = q[QuestionTable.id]
                     val userAnswer = submission.answers[qid]
@@ -409,10 +427,8 @@ class ExamService {
                         if (userAnswer == correctAnswer) correctAnswers++
                     }
                 }
-
                 val scorePercentage = if (totalQuestions > 0) (correctAnswers * 100) / totalQuestions else 0
                 val isCompleted = scorePercentage >= 70
-
                 UserExamProgressTable.insert {
                     it[UserExamProgressTable.userId] = userId
                     it[UserExamProgressTable.examId] = examId
@@ -423,17 +439,14 @@ class ExamService {
                     it[bestScore] = scorePercentage
                 }
             }
-
             val sectionScore = if (totalQuestions == 0) 0.0 else (correctAnswers.toDouble() / totalQuestions) * 100
             if (sectionScore < 70.0 && !hasIncompleteSection) {
                 startingSectionTitle = section[SectionTable.title]
                 hasIncompleteSection = true
             }
         }
-
         // Actualizar progreso general del curso solo para las secciones evaluadas
         updateCourseProgress(userId, submission.courseId)
-
         startingSectionTitle to hasIncompleteSection
     }
 

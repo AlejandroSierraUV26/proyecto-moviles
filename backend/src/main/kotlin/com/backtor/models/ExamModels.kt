@@ -60,13 +60,21 @@ data class AnswerFeedback(
 )
 
 @Serializable
+data class ResourceRecommendation(
+    val title: String,
+    val url: String,
+    val source: String
+)
+
+@Serializable
 data class ExamFeedbackResult(
     val feedbackList: List<AnswerFeedback>,
-    val correct: Int,  // Asegúrate de que esta propiedad exista
-    val total: Int,    // Asegúrate de que esta propiedad exista
-    val percentage: Int
+    val correct: Int,
+    val total: Int,
+    val percentage: Int,
+    val recommendations: List<ResourceRecommendation> = emptyList(),
+    val motivationalMessage: String = ""
 ) {
-    // Propiedades calculadas para compatibilidad
     val correctAnswers: Int get() = correct
     val totalAnswers: Int get() = total
 }
