@@ -35,16 +35,5 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        // En tu Application class o primera Activity:
-        if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
-            try {
-                val settings = Settings.Global.getInt(contentResolver, "force_gpu_rendering", 0)
-                if (settings != 1) {
-                    Toast.makeText(this, "Ajusta configuración GPU en opciones de desarrollador", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) {
-                Log.e("MIUI_FIX", "Error checking GPU settings", e)
-            }
-        }
     }
 }
