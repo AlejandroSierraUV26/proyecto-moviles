@@ -125,9 +125,7 @@ fun Route.examRoutes() {
                     HttpStatusCode.Unauthorized,
                     ApiResponse(false, "No autorizado")
                 )
-
                 val submission = call.receive<DiagnosticSubmission>()
-
                 // Validar que el nivel sea uno de los permitidos
                 if (!listOf("basic", "intermediate", "advanced").contains(submission.level.toLowerCase())) {
                     return@post call.respond(
@@ -135,9 +133,7 @@ fun Route.examRoutes() {
                         ApiResponse(false, "Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
                     )
                 }
-
                 val (startingSection, hasIncompleteSection) = examService.evaluateDiagnosticQuiz(email, submission)
-
                 call.respond(HttpStatusCode.OK, mapOf(
                     "success" to true,
                     "startingSection" to startingSection,
@@ -166,11 +162,9 @@ fun Route.examRoutes() {
         post("/submit") {
             val token = call.request.headers["Authorization"]?.removePrefix("Bearer ")?.trim()
             val email = JwtService.verifyToken(token ?: "") ?: return@post call.respond(HttpStatusCode.Unauthorized)
-
             val submission = call.receive<ExamSubmission>()
             val result = examService.evaluateExam(submission)
             val saved = examService.saveExamProgress(email, submission, result)
-
             if (saved) call.respond(result)
             else call.respond(HttpStatusCode.InternalServerError, "No se pudo guardar el progreso")
         }
