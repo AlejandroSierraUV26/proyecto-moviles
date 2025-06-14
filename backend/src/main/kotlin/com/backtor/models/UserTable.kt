@@ -5,7 +5,9 @@ import java.util.UUID
 import org.jetbrains.exposed.sql.javatime.datetime
 import java.time.LocalDateTime
 import org.jetbrains.exposed.sql.javatime.date
-
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.javatime.CurrentDateTime
+import org.jetbrains.exposed.sql.ReferenceOption
 
 
 
@@ -21,4 +23,11 @@ object UserTable : Table("users") {
     val profileImageUrl = varchar("profile_image_url", 255).nullable()
 
     override val primaryKey = PrimaryKey(id)
+}
+object Followers : Table("followers") {
+    val userId = integer("user_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
+    val followerId = integer("follower_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
+    val followedAt = datetime("followed_at").defaultExpression(CurrentDateTime)
+
+    override val primaryKey = PrimaryKey(userId, followerId)
 }

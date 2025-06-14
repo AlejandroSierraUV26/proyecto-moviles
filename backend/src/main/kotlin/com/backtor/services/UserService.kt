@@ -6,7 +6,13 @@ import com.backtor.models.UserProfile
 import com.backtor.models.UserExperienceTable
 import com.backtor.models.ExperienceDTO
 import com.backtor.models.UserCourseWithProgress
+import com.backtor.models.Followers
+import com.backtor.models.UserDTO
+import com.backtor.database.DatabaseFactory.dbQuery
+import com.backtor.models.toUserDTO
 
+import org.jetbrains.exposed.sql.JoinType
+import org.jetbrains.exposed.sql.alias
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.update
@@ -142,6 +148,7 @@ class UserService {
                 .sumOf { it[UserExperienceTable.experiencePoints] }
 
             UserProfile(
+                id = userRow[UserTable.id],
                 email = userRow[UserTable.email],
                 username = userRow[UserTable.username],
                 streak = userRow[UserTable.streak],
@@ -170,6 +177,7 @@ class UserService {
                 val experienceTotal = user[UserTable.experienceTotal]
 
                 UserProfile(
+                    id = user[UserTable.id],
                     email = user[UserTable.email],
                     username = user[UserTable.username],
                     streak = user[UserTable.streak],
@@ -218,6 +226,7 @@ class UserService {
             }
 
             UserProfile(
+                id = userRow[UserTable.id],
                 email = userRow[UserTable.email],
                 username = userRow[UserTable.username],
                 streak = userRow[UserTable.streak],
@@ -648,6 +657,10 @@ class UserService {
             }
         }
         return UserProfile(
+            id = UserTable
+                .select { UserTable.email eq email }
+                .map { it[UserTable.id] }
+                .firstOrNull() ?: throw IllegalArgumentException("User not found after registration"),
             email = email,
             username = username,
             streak = 0,
@@ -656,6 +669,7 @@ class UserService {
             lastActivity = LocalDateTime.now(),
             createdAt = LocalDateTime.now()
         )
+
     }
     suspend fun findOrCreateUserByEmail(email: String, name: String, profilePic: String?): UserProfile {
         val existingUser = findByEmail(email)
@@ -665,5 +679,40 @@ class UserService {
             registerUserViaGoogle(email, name, profilePic)
         }
     }
+    suspend fun followUser(currentUserId: Int, targetUserId: Int): Boolean = dbQuery {
+        if (currentUserId == targetUserId) return@dbQuery false
 
+        val exists = Followers.select {
+            (Followers.userId eq targetUserId) and (Followers.followerId eq currentUserId)
+        }.count() > 0
+
+        if (!exists) {
+            Followers.insert {
+                it[userId] = targetUserId
+                it[followerId] = currentUserId
+            }
+            return@dbQuery true
+        }
+        false
+    }
+
+    suspend fun unfollowUser(currentUserId: Int, targetUserId: Int): Boolean = dbQuery {
+        Followers.deleteWhere {
+            (Followers.userId eq targetUserId) and (Followers.followerId eq currentUserId)
+        } > 0
+    }
+
+    suspend fun getFollowers(userId: Int): List<UserDTO> = dbQuery {
+        val followerAlias = UserTable.alias("follower")
+        Followers.join(followerAlias, JoinType.INNER, Followers.followerId, followerAlias[UserTable.id])
+            .select { Followers.userId eq userId }
+            .map { toUserDTO(it, followerAlias) }
+    }
+
+    suspend fun getFollowing(userId: Int): List<UserDTO> = dbQuery {
+        val followingAlias = UserTable.alias("following")
+        Followers.join(followingAlias, JoinType.INNER, Followers.userId, followingAlias[UserTable.id])
+            .select { Followers.followerId eq userId }
+            .map { toUserDTO(it, followingAlias) }
+    }
 }

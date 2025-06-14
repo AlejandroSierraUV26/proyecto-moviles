@@ -3,6 +3,9 @@ package com.backtor.database
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.transactions.transaction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object DatabaseFactory {
     fun init() {
@@ -19,4 +22,9 @@ object DatabaseFactory {
         val dataSource = HikariDataSource(config)
         Database.connect(dataSource)
     }
+    suspend fun <T> dbQuery(block: () -> T): T =
+        withContext(Dispatchers.IO) {
+            transaction { block() }
+        }
+
 }

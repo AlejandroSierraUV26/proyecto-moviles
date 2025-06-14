@@ -7,6 +7,7 @@ import kotlinx.serialization.Contextual
 
 @Serializable
 data class UserProfile(
+    val id: Int,
     val email: String,
     val username: String,
     val streak: Int,
