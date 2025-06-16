@@ -1,6 +1,7 @@
 package com.backtor.routes
 
 import com.backtor.models.*
+import com.backtor.services.*
 import com.backtor.services.ExamService
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -9,18 +10,73 @@ import io.ktor.server.routing.*
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import com.backtor.security.JwtService
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.SerializationException
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.auth.authenticate
+
+
 
 fun Route.examRoutes() {
     val examService = ExamService()
     route("/api/exams") {
+        // Endpoint para generar preview
+        /*post("/generate-preview") {
+            val request = call.receive<Map<String, String>>()
+            val topic = request["topic"] ?: return@post call.respond(HttpStatusCode.BadRequest, "Tema requerido")
+            val apiKey = "7647a357c35f411daaacc715f2d416a4" // Deberías usar variables de entorno
+
+            try {
+                val (previewId, jsonResponse) = examService.generateAndSaveCoursePreview(topic, apiKey)
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "status" to "success",
+                    "previewId" to previewId,
+                    "preview" to jsonResponse,
+                    "message" to "Preview del curso generado y guardado temporalmente"
+                ))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "status" to "error",
+                    "message" to "Error generando preview: ${e.message}"
+                ))
+            }
+        }
+
+// Endpoint para procesar el preview a curso completo
+        post("/process-preview") {
+            val request = call.receive<Map<String, String>>() // Cambiado a String
+            val previewId = request["previewId"]?.toIntOrNull()
+                ?: return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("status" to "error", "message" to "ID de preview requerido o inválido")
+                )
+
+            try {
+                val courseId = examService.processPreviewToCourse(previewId)
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "status" to "success",
+                    "courseId" to courseId,
+                    "message" to "Curso generado exitosamente"
+                ))
+            } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is SerializationException -> "Error en el formato del curso: ${e.message}"
+                    else -> "Error procesando preview: ${e.message}"
+                }
+
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "status" to "error",
+                    "message" to errorMessage
+                ))
+            }
+        }*/
+
         // CURSOS
         post("/courses") {
             val request = call.receive<CourseRequest>()
             val id = examService.createCourse(request)
             call.respond(HttpStatusCode.Created, mapOf("id" to id))
-        }
-        get("/courses") {
-            call.respond(examService.getAllCourses())
         }
         put("/courses/{id}") {
             val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, "Invalid course ID")
@@ -120,6 +176,87 @@ fun Route.examRoutes() {
         // ENVÍO DE RESPUESTAS PARA EVALUAR EXAMEN
         // PROGRESO DEL USUARIO
         authenticate("auth-jwt") {
+            get("/courses") {
+                val email = call.getEmailFromToken() ?: return@get call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(false, "No autorizado")
+                )
+
+                call.respond(examService.getAllCourses(email))
+            }
+            post("/generate-preview") {
+                val email = call.getEmailFromToken() ?: return@post call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf("status" to "error", "message" to "No autorizado")
+                )
+
+                val request = call.receive<Map<String, String>>()
+                val topic = request["topic"] ?: return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("status" to "error", "message" to "Tema requerido")
+                )
+
+                val apiKey = "7647a357c35f411daaacc715f2d416a4" // Deberías usar variables de entorno
+
+                try {
+                    val (previewId, jsonResponse) = examService.generateAndSaveCoursePreview(
+                        topic = topic,
+                        apiKey = apiKey,
+                        createdBy = email // Pasamos el email del usuario autenticado
+                    )
+
+                    call.respond(HttpStatusCode.OK, mapOf(
+                        "status" to "success",
+                        "previewId" to previewId,
+                        "preview" to jsonResponse,
+                        "message" to "Preview del curso generado y guardado temporalmente"
+                    ))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, mapOf(
+                        "status" to "error",
+                        "message" to "Error generando preview: ${e.message}"
+                    ))
+                }
+            }
+
+            // Procesar preview a curso completo
+            post("/process-preview") {
+                val email = call.getEmailFromToken() ?: return@post call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf("status" to "error", "message" to "No autorizado")
+                )
+
+                val request = call.receive<Map<String, String>>()
+                val previewId = request["previewId"]?.toIntOrNull()
+                    ?: return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf("status" to "error", "message" to "ID de preview requerido o inválido")
+                    )
+
+                try {
+                    val courseId = examService.processPreviewToCourse(
+                        previewId = previewId,
+                        createdBy = email // Pasamos el email del usuario como creador
+                    )
+
+                    call.respond(HttpStatusCode.OK, mapOf(
+                        "status" to "success",
+                        "courseId" to courseId,
+                        "message" to "Curso generado exitosamente"
+                    ))
+                } catch (e: Exception) {
+                    val errorMessage = when (e) {
+                        is NoSuchElementException -> "Preview no encontrado"
+                        is SerializationException -> "Error en el formato del curso: ${e.message}"
+                        else -> "Error procesando preview: ${e.message}"
+                    }
+
+                    call.respond(HttpStatusCode.InternalServerError, mapOf(
+                        "status" to "error",
+                        "message" to errorMessage
+                    ))
+                }
+            }
             post("/diagnostic") {
                 val email = call.getEmailFromToken() ?: return@post call.respond(
                     HttpStatusCode.Unauthorized,

@@ -12,6 +12,7 @@ data class Section(
 
 @Serializable
 data class SectionRequest(
+    val id: Int,
     val courseId: Int,
     val title: String,
     val difficultyLevel: Int

@@ -6,8 +6,153 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 import java.net.URLEncoder
+import kotlinx.serialization.*
+import kotlinx.serialization.json.*
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.json.*
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import java.util.concurrent.TimeUnit
+import org.jetbrains.exposed.sql.insert
+import java.time.DateTimeException
 
 class ExamService {
+    suspend fun generateAndSaveCoursePreview(topic: String, apiKey: String, createdBy: String): Pair<Int, String> {
+        val prompt = """
+        Genera un JSON VÁLIDO y COMPLETO sobre "$topic" con:
+        - 3 secciones (básica=1, intermedia=2, avanzada=3)
+        - 3 preguntas por sección(SOLO 2 palabras por pregunta)
+        - 4 opciones por pregunta (SOLO 1 palabra por opción, TODAS entre comillas)
+        - Estructura EXACTA:
+
+        {
+          "title": "Título del curso",
+          "description": "Descripción",
+          "sections": [
+            {
+              "title": "Básico",
+              "difficultyLevel": 1,
+              "questions": [
+                {
+                  "questionText": "Pregunta?",
+                  "options": ["Op1", "Op2", "Op3", "Op4"],
+                  "correctAnswer": "Op3",
+                  "feedback": "Explicación simple sin comillas internas"
+                }
+              ]
+            }
+          ]
+        }
+    """.trimIndent()
+
+        val requestJson = buildJsonObject {
+            put("model", "gpt-3.5-turbo-0125")
+            putJsonArray("messages") {
+                addJsonObject {
+                    put("role", "user")
+                    put("content", prompt)
+                }
+            }
+            put("response_format", buildJsonObject { put("type", "json_object") })
+        }
+
+        val body = Json.encodeToString(requestJson).toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("https://api.aimlapi.com/chat/completions")
+            .post(body)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .build()
+
+        val client = OkHttpClient()
+        val response = client.newCall(request).execute()
+
+        if (!response.isSuccessful) {
+            throw Exception("Error en la API: ${response.code}")
+        }
+
+        val responseBody = response.body?.string() ?: throw Exception("Respuesta vacía")
+
+        // Guardar en la tabla de previews con el created_by
+        val previewId = transaction {
+            // Obtener el ID del usuario como entero
+            val userId = UserTable
+                .select { UserTable.email eq createdBy }
+                .map { it[UserTable.id] }
+                .firstOrNull() ?: throw Exception("Usuario no encontrado")
+
+            CoursePreviews.insert {
+                it[this.topic] = topic
+                it[jsonContent] = responseBody
+                it[this.createdBy] = userId // Asignamos el ID del usuario
+            }[CoursePreviews.id]
+        }
+
+        return Pair(previewId, responseBody)
+    }
+
+    suspend fun processPreviewToCourse(previewId: Int, createdBy: String): Int {
+        val preview = transaction {
+            CoursePreviews.select { CoursePreviews.id eq previewId }
+                .singleOrNull()
+        } ?: throw Exception("Preview no encontrado")
+
+        val jsonContent = preview[CoursePreviews.jsonContent]
+
+        val contentRaw = Json.parseToJsonElement(jsonContent).jsonObject
+            .get("choices")?.jsonArray?.firstOrNull()
+            ?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content
+            ?: throw Exception("No se pudo extraer contenido")
+
+        val generated = Json { ignoreUnknownKeys = true }.decodeFromString<GenerateCourse>(contentRaw)
+
+        return transaction {
+            // Obtener el ID del usuario como entero
+            val userId = UserTable
+                .select { UserTable.email eq createdBy }
+                .map { it[UserTable.id] } // Obtenemos el valor entero del ID
+                .firstOrNull() ?: throw Exception("Usuario no encontrado")
+
+            // Crear el curso asignando directamente el ID del usuario
+            val courseId = CourseTable.insert {
+                it[CourseTable.title] = generated.title
+                it[CourseTable.description] = generated.description
+                it[CourseTable.createdBy] = userId // Asignamos el ID del usuario como entero
+            }[CourseTable.id]
+
+            // Resto de la lógica para crear secciones, exámenes y preguntas
+            generated.sections.forEach { section ->
+                val sectionId = SectionTable.insert {
+                    it[SectionTable.courseId] = courseId
+                    it[SectionTable.title] = section.title
+                    it[SectionTable.difficultyLevel] = section.difficultyLevel
+                }[SectionTable.id]
+
+                val examId = ExamTable.insert {
+                    it[ExamTable.title] = "Examen de ${section.title}"
+                    it[ExamTable.description] = "Evalúa conocimientos de ${section.title}"
+                    it[ExamTable.sectionId] = sectionId
+                    it[ExamTable.difficultyLevel] = section.difficultyLevel
+                }[ExamTable.id]
+
+                section.questions.forEach { question ->
+                    QuestionTable.insert {
+                        it[QuestionTable.examId] = examId
+                        it[QuestionTable.questionText] = question.questionText
+                        it[QuestionTable.options] = question.options.joinToString("||")
+                        it[QuestionTable.correctAnswer] = question.correctAnswer
+                        it[QuestionTable.feedback] = question.feedback
+                    }
+                }
+            }
+
+            courseId
+        }
+    }
+
     // ─────────────── CURSOS ───────────────
     fun createCourse(request: CourseRequest): Int = transaction {
         CourseTable.insert {
@@ -15,12 +160,29 @@ class ExamService {
             it[description] = request.description
         }[CourseTable.id]
     }
-    fun getAllCourses(): List<Course> = transaction {
-        CourseTable.selectAll().map {
+    fun getAllCourses(userEmail: String? = null): List<Course> = transaction {
+        // Obtener el ID del usuario si existe
+        val userId = userEmail?.let { email ->
+            UserTable.select { UserTable.email eq email }
+                .map { it[UserTable.id] }
+                .firstOrNull()
+        }
+
+        // Consulta base
+        val query = when (userId) {
+            null -> CourseTable.select { CourseTable.createdBy.isNull() } // Solo cursos públicos
+            else -> CourseTable.select {
+                (CourseTable.createdBy.isNull()) or
+                        (CourseTable.createdBy eq userId)
+            } // Cursos públicos + del usuario
+        }
+
+        query.map {
             Course(
                 id = it[CourseTable.id],
                 title = it[CourseTable.title],
-                description = it[CourseTable.description]
+                description = it[CourseTable.description],
+                createdBy = it[CourseTable.createdBy] // Agrega este campo al modelo Course
             )
         }
     }
