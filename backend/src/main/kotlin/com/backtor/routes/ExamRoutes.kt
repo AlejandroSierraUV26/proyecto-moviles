@@ -210,9 +210,9 @@ fun Route.examRoutes() {
                     ApiResponse(false, "No autorizado")
                 )
 
-                val courseId = call.parameters["courseId"]?.toIntOrNull()
+                val courseId = call.request.queryParameters["courseId"]?.toIntOrNull()
                     ?: return@get call.respond(HttpStatusCode.BadRequest, "ID de curso requerido")
-                val level = call.parameters["level"]?.toIntOrNull()
+                val level = call.request.queryParameters["level"]?.toIntOrNull()
                     ?: return@get call.respond(HttpStatusCode.BadRequest, "Nivel requerido (1-3)")
 
                 if (level !in 1..3) {
