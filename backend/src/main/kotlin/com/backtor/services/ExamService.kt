@@ -6,8 +6,153 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.LocalDateTime
 import java.net.URLEncoder
+import kotlinx.serialization.*
+import kotlinx.serialization.json.*
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.json.*
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import java.util.concurrent.TimeUnit
+import org.jetbrains.exposed.sql.insert
+import java.time.DateTimeException
 
 class ExamService {
+    suspend fun generateAndSaveCoursePreview(topic: String, apiKey: String, createdBy: String): Pair<Int, String> {
+        val prompt = """
+        Genera un JSON VÁLIDO y COMPLETO sobre "$topic" con:
+        - 3 secciones (básica=1, intermedia=2, avanzada=3)
+        - 3 preguntas por sección(SOLO 2 palabras por pregunta)
+        - 4 opciones por pregunta (SOLO 1 palabra por opción, TODAS entre comillas)
+        - Estructura EXACTA:
+
+        {
+          "title": "Título del curso",
+          "description": "Descripción",
+          "sections": [
+            {
+              "title": "Básico",
+              "difficultyLevel": 1,
+              "questions": [
+                {
+                  "questionText": "Pregunta?",
+                  "options": ["Op1", "Op2", "Op3", "Op4"],
+                  "correctAnswer": "Op3",
+                  "feedback": "Explicación simple sin comillas internas"
+                }
+              ]
+            }
+          ]
+        }
+    """.trimIndent()
+
+        val requestJson = buildJsonObject {
+            put("model", "gpt-3.5-turbo-0125")
+            putJsonArray("messages") {
+                addJsonObject {
+                    put("role", "user")
+                    put("content", prompt)
+                }
+            }
+            put("response_format", buildJsonObject { put("type", "json_object") })
+        }
+
+        val body = Json.encodeToString(requestJson).toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("https://api.aimlapi.com/chat/completions")
+            .post(body)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .build()
+
+        val client = OkHttpClient()
+        val response = client.newCall(request).execute()
+
+        if (!response.isSuccessful) {
+            throw Exception("Error en la API: ${response.code}")
+        }
+
+        val responseBody = response.body?.string() ?: throw Exception("Respuesta vacía")
+
+        // Guardar en la tabla de previews con el created_by
+        val previewId = transaction {
+            // Obtener el ID del usuario como entero
+            val userId = UserTable
+                .select { UserTable.email eq createdBy }
+                .map { it[UserTable.id] }
+                .firstOrNull() ?: throw Exception("Usuario no encontrado")
+
+            CoursePreviews.insert {
+                it[this.topic] = topic
+                it[jsonContent] = responseBody
+                it[this.createdBy] = userId // Asignamos el ID del usuario
+            }[CoursePreviews.id]
+        }
+
+        return Pair(previewId, responseBody)
+    }
+
+    suspend fun processPreviewToCourse(previewId: Int, createdBy: String): Int {
+        val preview = transaction {
+            CoursePreviews.select { CoursePreviews.id eq previewId }
+                .singleOrNull()
+        } ?: throw Exception("Preview no encontrado")
+
+        val jsonContent = preview[CoursePreviews.jsonContent]
+
+        val contentRaw = Json.parseToJsonElement(jsonContent).jsonObject
+            .get("choices")?.jsonArray?.firstOrNull()
+            ?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content
+            ?: throw Exception("No se pudo extraer contenido")
+
+        val generated = Json { ignoreUnknownKeys = true }.decodeFromString<GenerateCourse>(contentRaw)
+
+        return transaction {
+            // Obtener el ID del usuario como entero
+            val userId = UserTable
+                .select { UserTable.email eq createdBy }
+                .map { it[UserTable.id] } // Obtenemos el valor entero del ID
+                .firstOrNull() ?: throw Exception("Usuario no encontrado")
+
+            // Crear el curso asignando directamente el ID del usuario
+            val courseId = CourseTable.insert {
+                it[CourseTable.title] = generated.title
+                it[CourseTable.description] = generated.description
+                it[CourseTable.createdBy] = userId // Asignamos el ID del usuario como entero
+            }[CourseTable.id]
+
+            // Resto de la lógica para crear secciones, exámenes y preguntas
+            generated.sections.forEach { section ->
+                val sectionId = SectionTable.insert {
+                    it[SectionTable.courseId] = courseId
+                    it[SectionTable.title] = section.title
+                    it[SectionTable.difficultyLevel] = section.difficultyLevel
+                }[SectionTable.id]
+
+                val examId = ExamTable.insert {
+                    it[ExamTable.title] = "Examen de ${section.title}"
+                    it[ExamTable.description] = "Evalúa conocimientos de ${section.title}"
+                    it[ExamTable.sectionId] = sectionId
+                    it[ExamTable.difficultyLevel] = section.difficultyLevel
+                }[ExamTable.id]
+
+                section.questions.forEach { question ->
+                    QuestionTable.insert {
+                        it[QuestionTable.examId] = examId
+                        it[QuestionTable.questionText] = question.questionText
+                        it[QuestionTable.options] = question.options.joinToString("||")
+                        it[QuestionTable.correctAnswer] = question.correctAnswer
+                        it[QuestionTable.feedback] = question.feedback
+                    }
+                }
+            }
+
+            courseId
+        }
+    }
+
     // ─────────────── CURSOS ───────────────
     fun createCourse(request: CourseRequest): Int = transaction {
         CourseTable.insert {
@@ -15,12 +160,29 @@ class ExamService {
             it[description] = request.description
         }[CourseTable.id]
     }
-    fun getAllCourses(): List<Course> = transaction {
-        CourseTable.selectAll().map {
+    fun getAllCourses(userEmail: String? = null): List<Course> = transaction {
+        // Obtener el ID del usuario si existe
+        val userId = userEmail?.let { email ->
+            UserTable.select { UserTable.email eq email }
+                .map { it[UserTable.id] }
+                .firstOrNull()
+        }
+
+        // Consulta base
+        val query = when (userId) {
+            null -> CourseTable.select { CourseTable.createdBy.isNull() } // Solo cursos públicos
+            else -> CourseTable.select {
+                (CourseTable.createdBy.isNull()) or
+                        (CourseTable.createdBy eq userId)
+            } // Cursos públicos + del usuario
+        }
+
+        query.map {
             Course(
                 id = it[CourseTable.id],
                 title = it[CourseTable.title],
-                description = it[CourseTable.description]
+                description = it[CourseTable.description],
+                createdBy = it[CourseTable.createdBy] // Agrega este campo al modelo Course
             )
         }
     }
@@ -388,66 +550,190 @@ class ExamService {
         val courseProgress = if (totalExams > 0) (totalCompletedExams * 100) / totalExams else 0
         CourseProgressResponse(courseProgress, sections)
     }
-    fun evaluateDiagnosticQuiz(email: String, submission: DiagnosticSubmission): Pair<String, Boolean> = transaction {
+    fun getDiagnosticQuestions(courseId: Int, maxLevel: Int): List<DiagnosticQuestion> = transaction {
+        // Get all sections of the course up to the selected level
+        val sections = SectionTable
+            .select {
+                (SectionTable.courseId eq courseId) and
+                        (SectionTable.difficultyLevel lessEq maxLevel)
+            }
+            .map { it[SectionTable.id] }
+
+        if (sections.isEmpty()) {
+            return@transaction emptyList()
+        }
+
+        // Get all exams in these sections
+        val exams = ExamTable
+            .select { ExamTable.sectionId inList sections }
+            .map { it[ExamTable.id] }
+
+        if (exams.isEmpty()) {
+            return@transaction emptyList()
+        }
+
+        // Get all questions from these exams
+        QuestionTable
+            .select { QuestionTable.examId inList exams }
+            .map {
+                DiagnosticQuestion(
+                    id = it[QuestionTable.id],
+                    examId = it[QuestionTable.examId],
+                    questionText = it[QuestionTable.questionText],
+                    options = it[QuestionTable.options].split("||"),
+                    difficultyLevel = ExamTable
+                        .select { ExamTable.id eq it[QuestionTable.examId] }
+                        .first()[ExamTable.difficultyLevel]
+                )
+            }
+    }
+    fun evaluateDiagnosticSubmission(email: String, submission: DiagnosticSubmission): DiagnosticFeedback = transaction {
         val userId = UserTable
             .select { UserTable.email eq email }
             .map { it[UserTable.id] }
             .firstOrNull() ?: throw IllegalArgumentException("Usuario no encontrado")
 
-        // Determinar los niveles a evaluar según la selección del usuario
-        val levelsToEvaluate = when (submission.level.toLowerCase()) {
-            "basic" -> listOf(1)
-            "intermediate" -> listOf(2, 3)
-            "advanced" -> listOf(4)
-            else -> throw IllegalArgumentException("Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
+        // Obtener todas las preguntas para los niveles solicitados
+        val allQuestions = getDiagnosticQuestions(submission.courseId, submission.maxLevel)
+        if (allQuestions.isEmpty()) {
+            throw IllegalArgumentException("No se encontraron preguntas para este curso y nivel")
         }
-        val sections = SectionTable
-            .select {
-                (SectionTable.courseId eq submission.courseId) and
-                        (SectionTable.difficultyLevel inList levelsToEvaluate)
-            }
-            .orderBy(SectionTable.difficultyLevel to SortOrder.ASC)
-            .toList()
-        var startingSectionTitle = "Nivel completo"
-        var hasIncompleteSection = false
-        for (section in sections) {
-            val sectionId = section[SectionTable.id]
-            val exams = ExamTable.select { ExamTable.sectionId eq sectionId }.toList()
-            var totalQuestions = 0
-            var correctAnswers = 0
-            for (exam in exams) {
-                val examId = exam[ExamTable.id]
-                val questions = QuestionTable.select { QuestionTable.examId eq examId }
-                for (q in questions) {
-                    val qid = q[QuestionTable.id]
-                    val userAnswer = submission.answers[qid]
-                    val correctAnswer = q[QuestionTable.correctAnswer]
-                    if (userAnswer != null) {
-                        totalQuestions++
-                        if (userAnswer == correctAnswer) correctAnswers++
-                    }
-                }
-                val scorePercentage = if (totalQuestions > 0) (correctAnswers * 100) / totalQuestions else 0
-                val isCompleted = scorePercentage >= 70
-                UserExamProgressTable.insert {
-                    it[UserExamProgressTable.userId] = userId
-                    it[UserExamProgressTable.examId] = examId
-                    it[questionsAnswered] = totalQuestions
-                    it[questionsCorrect] = correctAnswers
-                    it[completed] = isCompleted
-                    it[lastAttemptDate] = LocalDateTime.now()
-                    it[bestScore] = scorePercentage
-                }
-            }
-            val sectionScore = if (totalQuestions == 0) 0.0 else (correctAnswers.toDouble() / totalQuestions) * 100
-            if (sectionScore < 70.0 && !hasIncompleteSection) {
-                startingSectionTitle = section[SectionTable.title]
-                hasIncompleteSection = true
-            }
-        }
-        // Actualizar progreso general del curso solo para las secciones evaluadas
-        updateCourseProgress(userId, submission.courseId)
-        startingSectionTitle to hasIncompleteSection
-    }
 
+        // Agrupar preguntas por nivel de dificultad
+        val questionsByLevel = allQuestions.groupBy { it.difficultyLevel }
+        val results = mutableListOf<DiagnosticResult>()
+        var recommendedStartingSection: String? = null
+
+        // Función auxiliar para obtener respuesta correcta
+        fun getCorrectAnswer(questionId: Int): String = transaction {
+            QuestionTable
+                .select { QuestionTable.id eq questionId }
+                .single()[QuestionTable.correctAnswer]
+        }
+
+        // Evaluar cada nivel por separado
+        for (level in 1..submission.maxLevel) {
+            val levelQuestions = questionsByLevel[level] ?: emptyList()
+
+            if (levelQuestions.isEmpty()) {
+                results.add(DiagnosticResult(level, false, 0.0, null, "No hay preguntas para este nivel"))
+                continue
+            }
+
+            // Filtrar solo preguntas que fueron respondidas
+            val answeredQuestions = levelQuestions.filter { question ->
+                submission.answers.containsKey(question.id)
+            }
+
+            if (answeredQuestions.isEmpty()) {
+                results.add(DiagnosticResult(level, false, 0.0, null, "No respondiste preguntas de este nivel"))
+                continue
+            }
+
+            // Calcular respuestas correctas
+            val correctAnswers = answeredQuestions.count { question ->
+                submission.answers[question.id] == getCorrectAnswer(question.id)
+            }
+
+            // Calcular porcentaje basado en preguntas respondidas
+            val score = (correctAnswers.toDouble() / answeredQuestions.size) * 100
+            val passed = score >= 80.0
+
+            // Obtener título de la sección para recomendación
+            val sectionTitle = SectionTable
+                .select {
+                    (SectionTable.courseId eq submission.courseId) and
+                            (SectionTable.difficultyLevel eq level)
+                }
+                .limit(1)
+                .map { it[SectionTable.title] }
+                .firstOrNull()
+
+            results.add(
+                DiagnosticResult(
+                    levelTested = level,
+                    passed = passed,
+                    score = score,
+                    startingSection = sectionTitle,
+                    message = if (passed)
+                        "¡Aprobaste el nivel $level con ${"%.1f".format(score)}%!"
+                    else
+                        "Necesitas mejorar en el nivel $level (${"%.1f".format(score)}%)"
+                )
+            )
+
+            // Determinar sección de inicio recomendada
+            if (!passed && recommendedStartingSection == null) {
+                recommendedStartingSection = sectionTitle
+            }
+
+            // Actualizar progreso para cada examen en este nivel
+            val examIds = levelQuestions.map { it.examId }.distinct()
+            for (examId in examIds) {
+                val examQuestions = levelQuestions.filter { it.examId == examId }
+                val answeredExamQuestions = examQuestions.filter { submission.answers.containsKey(it.id) }
+
+                if (answeredExamQuestions.isNotEmpty()) {
+                    val examCorrect = answeredExamQuestions.count { question ->
+                        submission.answers[question.id] == getCorrectAnswer(question.id)
+                    }
+
+                    val examScore = (examCorrect.toDouble() / answeredExamQuestions.size) * 100
+                    val isCompleted = examScore >= 70.0
+
+                    // Verificar si ya existe progreso para este examen
+                    val existingProgress = UserExamProgressTable
+                        .select {
+                            (UserExamProgressTable.userId eq userId) and
+                                    (UserExamProgressTable.examId eq examId)
+                        }
+                        .firstOrNull()
+
+                    if (existingProgress == null) {
+                        // Insertar nuevo progreso
+                        UserExamProgressTable.insert {
+                            it[UserExamProgressTable.userId] = userId
+                            it[UserExamProgressTable.examId] = examId
+                            it[UserExamProgressTable.questionsAnswered] = answeredExamQuestions.size
+                            it[UserExamProgressTable.questionsCorrect] = examCorrect
+                            it[UserExamProgressTable.completed] = isCompleted
+                            it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                            it[UserExamProgressTable.bestScore] = examScore.toInt()
+                        }
+                    } else {
+                        // Actualizar progreso existente
+                        UserExamProgressTable.update({
+                            (UserExamProgressTable.userId eq userId) and
+                                    (UserExamProgressTable.examId eq examId)
+                        }) {
+                            it[UserExamProgressTable.questionsAnswered] = existingProgress[UserExamProgressTable.questionsAnswered] + answeredExamQuestions.size
+                            it[UserExamProgressTable.questionsCorrect] = existingProgress[UserExamProgressTable.questionsCorrect] + examCorrect
+                            it[UserExamProgressTable.completed] = isCompleted || existingProgress[UserExamProgressTable.completed]
+                            it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                            it[UserExamProgressTable.bestScore] = maxOf(existingProgress[UserExamProgressTable.bestScore], examScore.toInt())
+                        }
+                    }
+
+                    // Actualizar progreso del curso
+                    updateCourseProgress(userId, examId)
+                }
+            }
+        }
+
+        // Determinar resultado general
+        val passedAll = results.all { it.passed }
+        val overallMessage = if (passedAll) {
+            "¡Felicidades! Dominas todos los niveles evaluados."
+        } else {
+            recommendedStartingSection?.let { "Recomendamos comenzar con: $it" }
+                ?: "Por favor revisa tus resultados."
+        }
+
+        DiagnosticFeedback(
+            results = results,
+            overallResult = overallMessage,
+            recommendedStartingSection = recommendedStartingSection ?:
+            results.lastOrNull()?.startingSection ?: "No se pudo determinar"
+        )
+    }
 }

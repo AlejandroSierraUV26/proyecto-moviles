@@ -1,6 +1,7 @@
 package com.backtor.routes
 
 import com.backtor.models.*
+import com.backtor.services.*
 import com.backtor.services.ExamService
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -9,18 +10,73 @@ import io.ktor.server.routing.*
 import io.ktor.http.*
 import io.ktor.server.auth.*
 import com.backtor.security.JwtService
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.SerializationException
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.auth.authenticate
+
+
 
 fun Route.examRoutes() {
     val examService = ExamService()
     route("/api/exams") {
+        // Endpoint para generar preview
+        /*post("/generate-preview") {
+            val request = call.receive<Map<String, String>>()
+            val topic = request["topic"] ?: return@post call.respond(HttpStatusCode.BadRequest, "Tema requerido")
+            val apiKey = "7647a357c35f411daaacc715f2d416a4" // Deberías usar variables de entorno
+
+            try {
+                val (previewId, jsonResponse) = examService.generateAndSaveCoursePreview(topic, apiKey)
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "status" to "success",
+                    "previewId" to previewId,
+                    "preview" to jsonResponse,
+                    "message" to "Preview del curso generado y guardado temporalmente"
+                ))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "status" to "error",
+                    "message" to "Error generando preview: ${e.message}"
+                ))
+            }
+        }
+
+// Endpoint para procesar el preview a curso completo
+        post("/process-preview") {
+            val request = call.receive<Map<String, String>>() // Cambiado a String
+            val previewId = request["previewId"]?.toIntOrNull()
+                ?: return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("status" to "error", "message" to "ID de preview requerido o inválido")
+                )
+
+            try {
+                val courseId = examService.processPreviewToCourse(previewId)
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "status" to "success",
+                    "courseId" to courseId,
+                    "message" to "Curso generado exitosamente"
+                ))
+            } catch (e: Exception) {
+                val errorMessage = when (e) {
+                    is SerializationException -> "Error en el formato del curso: ${e.message}"
+                    else -> "Error procesando preview: ${e.message}"
+                }
+
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "status" to "error",
+                    "message" to errorMessage
+                ))
+            }
+        }*/
+
         // CURSOS
         post("/courses") {
             val request = call.receive<CourseRequest>()
             val id = examService.createCourse(request)
             call.respond(HttpStatusCode.Created, mapOf("id" to id))
-        }
-        get("/courses") {
-            call.respond(examService.getAllCourses())
         }
         put("/courses/{id}") {
             val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, "Invalid course ID")
@@ -120,53 +176,170 @@ fun Route.examRoutes() {
         // ENVÍO DE RESPUESTAS PARA EVALUAR EXAMEN
         // PROGRESO DEL USUARIO
         authenticate("auth-jwt") {
-            post("/diagnostic") {
+            post("/diagnostic/submit") {
                 val email = call.getEmailFromToken() ?: return@post call.respond(
                     HttpStatusCode.Unauthorized,
                     ApiResponse(false, "No autorizado")
                 )
-                val submission = call.receive<DiagnosticSubmission>()
-                // Validar que el nivel sea uno de los permitidos
-                if (!listOf("basic", "intermediate", "advanced").contains(submission.level.toLowerCase())) {
+
+                val submission = try {
+                    call.receive<DiagnosticSubmission>()
+                } catch (e: Exception) {
                     return@post call.respond(
                         HttpStatusCode.BadRequest,
-                        ApiResponse(false, "Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
+                        ApiResponse(false, "Datos de envío inválidos")
                     )
                 }
-                val (startingSection, hasIncompleteSection) = examService.evaluateDiagnosticQuiz(email, submission)
-                call.respond(HttpStatusCode.OK, mapOf(
-                    "success" to true,
-                    "startingSection" to startingSection,
-                    "hasIncompleteSection" to hasIncompleteSection,
-                    "levelTested" to submission.level,
-                    "message" to if (hasIncompleteSection)
-                        "Según tu nivel ${submission.level}, debes comenzar en la sección $startingSection"
-                    else "¡Felicidades! Dominas todo el nivel ${submission.level} del curso"
-                ))
+
+                try {
+                    val result = examService.evaluateDiagnosticSubmission(email, submission)
+                    call.respond(HttpStatusCode.OK, result)
+                } catch (e: Exception) {
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        mapOf(
+                            "status" to "error",
+                            "message" to "Error evaluando diagnóstico: ${e.message}"
+                        )
+                    )
+                }
             }
-            get("/progress/{courseId}") {
+            get("/diagnostic/questions") {
                 val email = call.getEmailFromToken() ?: return@get call.respond(
                     HttpStatusCode.Unauthorized,
                     ApiResponse(false, "No autorizado")
                 )
 
-                val courseId = call.parameters["courseId"]?.toIntOrNull() ?: return@get call.respond(
-                    HttpStatusCode.BadRequest,
-                    ApiResponse(false, "ID de curso inválido")
+                val courseId = call.request.queryParameters["courseId"]?.toIntOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, "ID de curso requerido")
+                val level = call.request.queryParameters["level"]?.toIntOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, "Nivel requerido (1-3)")
+
+                if (level !in 1..3) {
+                    return@get call.respond(HttpStatusCode.BadRequest, "Nivel debe ser 1, 2 o 3")
+                }
+
+                try {
+                    val questions = examService.getDiagnosticQuestions(courseId, level)
+                    call.respond(HttpStatusCode.OK, questions)
+                } catch (e: Exception) {
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        mapOf(
+                            "status" to "error",
+                            "message" to "Error obteniendo preguntas: ${e.message}"
+                        )
+                    )
+                }
+            }
+            get("/courses") {
+                val email = call.getEmailFromToken() ?: return@get call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiResponse(false, "No autorizado")
                 )
 
-                val progress = examService.getCourseProgress(email, courseId)
-                call.respond(HttpStatusCode.OK, progress)
+                call.respond(examService.getAllCourses(email))
             }
-        }
-        post("/submit") {
-            val token = call.request.headers["Authorization"]?.removePrefix("Bearer ")?.trim()
-            val email = JwtService.verifyToken(token ?: "") ?: return@post call.respond(HttpStatusCode.Unauthorized)
-            val submission = call.receive<ExamSubmission>()
-            val result = examService.evaluateExam(submission)
-            val saved = examService.saveExamProgress(email, submission, result)
-            if (saved) call.respond(result)
-            else call.respond(HttpStatusCode.InternalServerError, "No se pudo guardar el progreso")
+            post("/generate-preview") {
+                val email = call.getEmailFromToken() ?: return@post call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf("status" to "error", "message" to "No autorizado")
+                )
+
+                val request = call.receive<Map<String, String>>()
+                val topic = request["topic"] ?: return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("status" to "error", "message" to "Tema requerido")
+                )
+
+                val apiKey =
+                    "7647a357c35f411daaacc715f2d416a4" // Deberías usar variables de entorno
+
+                try {
+                    val (previewId, jsonResponse) = examService.generateAndSaveCoursePreview(
+                        topic = topic,
+                        apiKey = apiKey,
+                        createdBy = email // Pasamos el email del usuario autenticado
+                    )
+
+                    call.respond(
+                        HttpStatusCode.OK, mapOf(
+                            "status" to "success",
+                            "previewId" to previewId,
+                            "preview" to jsonResponse,
+                            "message" to "Preview del curso generado y guardado temporalmente"
+                        )
+                    )
+                } catch (e: Exception) {
+                    call.respond(
+                        HttpStatusCode.InternalServerError, mapOf(
+                            "status" to "error",
+                            "message" to "Error generando preview: ${e.message}"
+                        )
+                    )
+                }
+            }
+
+            // Procesar preview a curso completo
+            post("/process-preview") {
+                val email = call.getEmailFromToken() ?: return@post call.respond(
+                    HttpStatusCode.Unauthorized,
+                    mapOf("status" to "error", "message" to "No autorizado")
+                )
+
+                val request = call.receive<Map<String, String>>()
+                val previewId = request["previewId"]?.toIntOrNull()
+                    ?: return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        mapOf(
+                            "status" to "error",
+                            "message" to "ID de preview requerido o inválido"
+                        )
+                    )
+
+                try {
+                    val courseId = examService.processPreviewToCourse(
+                        previewId = previewId,
+                        createdBy = email // Pasamos el email del usuario como creador
+                    )
+
+                    call.respond(
+                        HttpStatusCode.OK, mapOf(
+                            "status" to "success",
+                            "courseId" to courseId,
+                            "message" to "Curso generado exitosamente"
+                        )
+                    )
+                } catch (e: Exception) {
+                    val errorMessage = when (e) {
+                        is NoSuchElementException -> "Preview no encontrado"
+                        is SerializationException -> "Error en el formato del curso: ${e.message}"
+                        else -> "Error procesando preview: ${e.message}"
+                    }
+
+                    call.respond(
+                        HttpStatusCode.InternalServerError, mapOf(
+                            "status" to "error",
+                            "message" to errorMessage
+                        )
+                    )
+                }
+            }
+
+            post("/submit") {
+                val token = call.request.headers["Authorization"]?.removePrefix("Bearer ")?.trim()
+                val email = JwtService.verifyToken(token ?: "") ?: return@post call.respond(
+                    HttpStatusCode.Unauthorized
+                )
+                val submission = call.receive<ExamSubmission>()
+                val result = examService.evaluateExam(submission)
+                val saved = examService.saveExamProgress(email, submission, result)
+                if (saved) call.respond(result)
+                else call.respond(
+                    HttpStatusCode.InternalServerError,
+                    "No se pudo guardar el progreso"
+                )
+            }
         }
     }
 }

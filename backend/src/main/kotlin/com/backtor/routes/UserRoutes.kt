@@ -275,6 +275,71 @@ fun Route.userRoutes() {
             }
         }
         authenticate("auth-jwt") {
+            route("/users") {
+                post("/{userId}/follow") {
+                    val targetUserId = call.parameters["userId"]?.toIntOrNull()
+                        ?: return@post call.respond(HttpStatusCode.BadRequest)
+
+                    val email = call.getEmailFromToken() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                    val currentUser = userService.findByIdentifier(email)
+                        ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                    val currentUserId = currentUser.id
+                    if (userService.followUser(currentUserId, targetUserId))
+                        call.respond(HttpStatusCode.OK)
+                    else
+                        call.respond(HttpStatusCode.Conflict, "Already following or invalid")
+                }
+
+                post("/{userId}/unfollow") {
+                    val targetUserId = call.parameters["userId"]?.toIntOrNull()
+                        ?: return@post call.respond(HttpStatusCode.BadRequest)
+
+                    val email = call.getEmailFromToken() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                    val currentUser = userService.findByIdentifier(email)
+                        ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                    val currentUserId = currentUser.id
+
+                    if (userService.unfollowUser(currentUserId, targetUserId))
+                        call.respond(HttpStatusCode.OK)
+                    else
+                        call.respond(HttpStatusCode.NotFound)
+                }
+
+                get("/followers") {
+                    val email = call.getEmailFromToken() ?: return@get call.respond(HttpStatusCode.Unauthorized)
+                    val currentUser = userService.findByIdentifier(email)
+                        ?: return@get call.respond(HttpStatusCode.Unauthorized)
+                    val currentUserId = currentUser.id
+                    val followers = userService.getFollowers(currentUserId)
+                    call.respond(followers)
+                }
+
+                get("/following") {
+                    val email = call.getEmailFromToken() ?: return@get call.respond(HttpStatusCode.Unauthorized)
+                    val currentUser = userService.findByIdentifier(email)
+                        ?: return@get call.respond(HttpStatusCode.Unauthorized)
+                    val currentUserId = currentUser.id
+                    val following = userService.getFollowing(currentUserId)
+                    call.respond(following)
+                }
+
+                get("/{userId}/followers") {
+                    val userId = call.parameters["userId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest)
+
+                    val followers = userService.getFollowers(userId)
+                    call.respond(followers)
+                }
+
+                get("/{userId}/following") {
+                    val userId = call.parameters["userId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest)
+
+                    val following = userService.getFollowing(userId)
+                    call.respond(following)
+                }
+
+            }
             route("/profile/image") {
                 @Serializable
                 data class ImageUploadResponse(
