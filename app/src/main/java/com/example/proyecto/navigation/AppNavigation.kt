@@ -162,6 +162,13 @@ fun AppNavigation(homeViewModel: HomeViewModel) {
             composable(AppScreens.RecuperScreen.route) {
                 RecuperScreen(navController)
             }
+            composable(AppScreens.NivelUsuarioScreen.route) {
+                NivelUsuarioScreen(
+                    navController = navController,
+                    coursesViewModel = coursesViewModel,
+                    homeViewModel = homeViewModel
+                )
+            }
 
             composable(
                 route = "setPreguntas/{sectionId}/{difficultyLevel}",
@@ -203,18 +210,16 @@ fun AppNavigation(homeViewModel: HomeViewModel) {
                     homeViewModel = homeViewModel
                 )
             }
-
             composable(
-                route = "diagnostic/{courseId}/{level}",  // Asegúrate que coincida exactamente
+                route = "diagnostic/{courseId}/{level}",
                 arguments = listOf(
                     navArgument("courseId") { type = NavType.IntType },
-                    navArgument("level") { type = NavType.StringType }
+                    navArgument("level") { type = NavType.IntType } // Asegurar que sea Int
                 )
             ) { backStackEntry ->
                 val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
-                val level = backStackEntry.arguments?.getString("level") ?: "basic"
+                val level = backStackEntry.arguments?.getInt("level") ?: 0  // <- Ahora es Int
 
-                // Usa el ViewModel con factory
                 val factory = DiagnosticViewModelFactory(LocalContext.current.applicationContext as Application)
                 val viewModel: DiagnosticViewModel = viewModel(factory = factory)
 
@@ -224,60 +229,68 @@ fun AppNavigation(homeViewModel: HomeViewModel) {
                     navController = navController,
                 )
             }
-
-            composable(AppScreens.NivelUsuarioScreen.route) {
-                NivelUsuarioScreen(
-                    navController = navController,
-                    coursesViewModel = coursesViewModel,
-                    homeViewModel = homeViewModel
-                )
-            }
             composable(
                 route = AppScreens.DiagnosticScreen.route,
                 arguments = listOf(
                     navArgument("courseId") { type = NavType.IntType },
-                    navArgument("level") { type = NavType.StringType }
+                    navArgument("level") { type = NavType.IntType }  // <- Cambiado a IntType
                 )
             ) { backStackEntry ->
                 val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
-                val level = backStackEntry.arguments?.getString("level") ?: "basic"
+                val level = backStackEntry.arguments?.getInt("level") ?: 0  // <- Ahora es Int
 
                 DiagnosticScreen(
                     courseId = courseId,
-                    level = level,
-                    navController = navController
+                    level = level,  // Si el ViewModel espera String, conviértelo aquí
+                    navController = navController,
                 )
             }
             // En tu NavGraph principal
             composable(
-                route = AppScreens.DiagnosticResults.route + "/{courseId}/{level}/{startingSection}/{message}/{correctAnswers}/{totalQuestions}",
+                route = "diagnostic_results/" +
+                        "levelTested={levelTested}&" +
+                        "passed={passed}&" +
+                        "score={score}&" +
+                        "startingSection={startingSection}&" +
+                        "message={message}",
                 arguments = listOf(
-                    navArgument("courseId") { type = NavType.IntType },
-                    navArgument("level") { type = NavType.StringType },
-                    navArgument("startingSection") { type = NavType.StringType },
-                    navArgument("message") { type = NavType.StringType },
-                    navArgument("correctAnswers") { type = NavType.IntType },
-                    navArgument("totalQuestions") { type = NavType.IntType }
+                    navArgument("levelTested") {
+                        type = NavType.IntType
+                        defaultValue = 1 // Valor por defecto si no se proporciona
+                    },
+                    navArgument("passed") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    },
+                    navArgument("score") {
+                        type = NavType.FloatType
+                        defaultValue = 0.0f
+                    },
+                    navArgument("startingSection") {
+                        type = NavType.StringType
+                        nullable = true // Si puede ser null
+                        defaultValue = ""
+                    },
+                    navArgument("message") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
                 )
             ) { backStackEntry ->
-                val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
-                val level = backStackEntry.arguments?.getString("level") ?: "basic"
-                val startingSection = backStackEntry.arguments?.getString("startingSection") ?: "1"
-                val message = URLDecoder.decode(
-                    backStackEntry.arguments?.getString("message") ?: "",
-                    "UTF-8"
-                )
-                val correctAnswers = backStackEntry.arguments?.getInt("correctAnswers") ?: 0
-                val totalQuestions = backStackEntry.arguments?.getInt("totalQuestions") ?: 1
+                // Extraemos los argumentos aquí
+                val levelTested = backStackEntry.arguments?.getInt("levelTested") ?: 1
+                val passed = backStackEntry.arguments?.getBoolean("passed") ?: false
+                val score = backStackEntry.arguments?.getFloat("score")?.toDouble() ?: 0.0
+                val startingSection = backStackEntry.arguments?.getString("startingSection") ?: ""
+                val message = backStackEntry.arguments?.getString("message") ?: ""
 
                 DiagnosticResultsScreen(
-                    courseId = courseId,
-                    level = level,
+                    navController = navController,
+                    levelTested = levelTested,
+                    passed = passed,
+                    score = score,
                     startingSection = startingSection,
-                    message = message,
-                    correctAnswers = correctAnswers,
-                    totalQuestions = totalQuestions,
-                    navController = navController
+                    message = message
                 )
             }
 

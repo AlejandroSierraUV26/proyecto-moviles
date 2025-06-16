@@ -4,6 +4,23 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class DiagnosticSubmission(
     val courseId: Int,
-    val level: String,
+    val maxLevel: Int,
     val answers: Map<Int, String>
+)
+
+@Serializable
+data class DiagnosticQuestion(
+    val id: Int,
+    val examId: Int,
+    val questionText: String,
+    val options: List<String>,
+    val difficultyLevel: Int,
+    val correctAnswer: String, // Asegúrate de que exista
+)
+
+@Serializable
+data class DiagnosticFeedback(
+   val result: List<DiagnosticResult>,
+   val overallResult: String,
+   val recommendedStartingSection: String,
 )

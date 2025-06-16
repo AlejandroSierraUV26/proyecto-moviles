@@ -1,6 +1,7 @@
 package com.example.proyecto.ui.modules
 
 
+import android.R.attr.level
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -40,6 +41,8 @@ fun NivelUsuarioScreen(
     homeViewModel: HomeViewModel = viewModel(),
 ) {
 
+    Log.d("NivelUsuarioScreen", "Iniciando pantalla de selección de nivel")
+
     val levels = listOf("Básico", "Intermedio", "Avanzado")
     var selectedLevel by remember { mutableStateOf<String?>(null) }
     var showError by remember { mutableStateOf(false) }
@@ -49,11 +52,10 @@ fun NivelUsuarioScreen(
     val courseFromHomeVM by homeViewModel.selectedCourse.collectAsState()
     val selectedCourse = courseFromHomeVM ?: courseFromCoursesVM
 
-
-    Log.d("COURSE_FLOW", "Curso en NivelUsuarioScreen:")
-    Log.d("COURSE_FLOW", " - De CoursesVM: ${courseFromCoursesVM?.title ?: "null"}")
-    Log.d("COURSE_FLOW", " - De HomeVM: ${courseFromHomeVM?.title ?: "null"}")
-    Log.d("COURSE_FLOW", " - Seleccionado: ${selectedCourse?.title ?: "null"}")
+    Log.d("NivelUsuarioScreen", "Curso obtenido:")
+    Log.d("NivelUsuarioScreen", " - De CoursesVM: ${courseFromCoursesVM?.title ?: "null"} (ID: ${courseFromCoursesVM?.id ?: "null"})")
+    Log.d("NivelUsuarioScreen", " - De HomeVM: ${courseFromHomeVM?.title ?: "null"} (ID: ${courseFromHomeVM?.id ?: "null"})")
+    Log.d("NivelUsuarioScreen", " - Seleccionado: ${selectedCourse?.title ?: "null"} (ID: ${selectedCourse?.id ?: "null"})")
 
     LaunchedEffect(selectedCourse) {
         if (selectedCourse == null) {
@@ -127,19 +129,23 @@ fun NivelUsuarioScreen(
         Button(
             onClick = {
                 if (selectedLevel != null && selectedCourse != null) {
-                    val levelRoute = when (selectedLevel) {
-                        "Básico" -> "basic"
-                        "Intermedio" -> "intermediate"
-                        "Avanzado" -> "advanced"
-                        else -> return@Button
+                    val levelNumber = when (selectedLevel) {
+                        "Básico" -> 1   // Int
+                        "Intermedio" -> 2
+                        "Avanzado" -> 3
+                        else -> 1
                     }
-
+                    Log.d("NivelUsuarioScreen", "Navegando a diagnóstico - CursoID: ${selectedCourse.id}, Nivel: $levelNumber")
                     navController.navigate(
                         AppScreens.DiagnosticScreen.createRoute(
                             courseId = selectedCourse!!.id,
-                            level = levelRoute
+                            level = levelNumber  // ✅ Ahora siempre es Int
                         )
                     )
+                }
+                else {
+                    Log.w("NivelUsuarioScreen", "Intento de navegación sin nivel o curso seleccionado")
+                    showError = true
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
@@ -157,6 +163,19 @@ fun NivelUsuarioScreen(
                 fontSize = 20.sp
             )
         }
+    }
+    // Mostrar error si no se selecciona nivel
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text("Selección requerida") },
+            text = { Text("Por favor selecciona un nivel para continuar") },
+            confirmButton = {
+                Button(onClick = { showError = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 

@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.proyecto.data.models.DiagnosticQuestion
 import com.example.proyecto.data.models.Question
 import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.data.models.DiagnosticResult
@@ -35,9 +36,9 @@ import java.net.URLEncoder
 @Composable
 fun DiagnosticScreen(
     courseId: Int,
-    level: String,
+    level: Int,
     navController: NavController,
-    viewModel: DiagnosticViewModel = viewModel()
+    diagnosticViewModel: DiagnosticViewModel = viewModel(factory = DiagnosticViewModelFactory(LocalContext.current.applicationContext as Application))
 ) {
     Log.d("DiagnosticScreen", "courseId: $courseId, level: $level")
     Log.d("DiagnosticScreen", "Iniciando pantalla de diagnóstico para courseId: $courseId, level: $level")
@@ -52,24 +53,39 @@ fun DiagnosticScreen(
         factory = HomeViewModelFactory(application)
     )
 
-    val questions by viewModel.questions.collectAsState()
-    val loadingState by viewModel.loadingState.collectAsState()
-    val resultState by viewModel.resultState.collectAsState()
+    val questions by diagnosticViewModel.questions.collectAsState()
+    val loadingState by diagnosticViewModel.loadingState.collectAsState()
+    val resultState by diagnosticViewModel.resultState.collectAsState()
     val authToken by homeViewModel.authToken.collectAsState()
-    Log.d("DiagnosticScreen", "AuthToken: ${authToken?.take(10)}...")
+    Log.d("DiagnosticScreen", "Token obtenido de HomeViewModel: ${authToken?.take(10)}... (longitud: ${authToken?.length})")
 
-    // Resto de tu código sin cambios...
     var currentQuestionIndex by remember { mutableIntStateOf(0) }
     var selectedAnswers by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var showResult by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Efecto para cargar preguntas al iniciar
-    LaunchedEffect(Unit) {
-        Log.d("DiagnosticScreen", "Cargando preguntas...")
-        viewModel.loadQuestions(courseId, level)
+    // Convertir nivel numérico a texto para mostrar en UI
+    val levelName = remember(level) {
+        when (level) {
+            1 -> "Básico"
+            2 -> "Intermedio"
+            3 -> "Avanzado"
+            else -> "Nivel $level"
+        }
     }
+
+    // Establecer el token en el DiagnosticViewModel
+    LaunchedEffect(authToken) {
+        authToken?.let { token ->
+            Log.d("DiagnosticScreen", "Estableciendo token en DiagnosticViewModel")
+            diagnosticViewModel.setAuthToken(token)
+            diagnosticViewModel.loadQuestions(courseId, level)
+        }?: run {
+            Log.e("DiagnosticScreen", "No se encontró token de autenticación")
+        }
+    }
+
 
     // Log para estado de carga
     when (loadingState) {
@@ -81,30 +97,38 @@ fun DiagnosticScreen(
         }
         is DiagnosticViewModel.LoadingState.Success -> {
             Log.d("DiagnosticScreen", "Preguntas cargadas: ${questions.size}")
+            Log.d("DiagnosticScreen", "Primera pregunta: ${questions.firstOrNull()?.questionText?.take(30)}...")
         }
         DiagnosticViewModel.LoadingState.Idle -> {
             Log.d("DiagnosticScreen", "Estado idle")
         }
     }
-    // Manejar resultados del diagnóstico
+
+    // Log para respuestas seleccionadas
+    LaunchedEffect(selectedAnswers) {
+        Log.d("DiagnosticScreen", "Respuestas seleccionadas actualizadas: $selectedAnswers")
+    }
+
+
     LaunchedEffect(resultState) {
         when (val state = resultState) {
             is DiagnosticViewModel.ResultState.Success -> {
                 val result = state.result
+                Log.d("DiagnosticScreen", "Resultado exitoso: $result")
                 navController.navigate(
                     AppScreens.DiagnosticResults.createRoute(
-                        courseId = courseId,
-                        level = level,
-                        startingSection = result.startingSection,
-                        message = result.message,
-                        correctAnswers = result.correctAnswers,
-                        totalQuestions = result.totalQuestions
+                        levelTested = result.levelTested, // Usamos el levelTested del resultado
+                        passed = result.passed,
+                        score = result.score,
+                        startingSection = URLEncoder.encode(result.startingSection, "UTF-8"),
+                        message = URLEncoder.encode(result.message, "UTF-8")
                     )
                 ) {
                     popUpTo(AppScreens.DiagnosticScreen.route) { inclusive = true }
                 }
             }
             is DiagnosticViewModel.ResultState.Error -> {
+                Log.e("DiagnosticScreen", "Error en el resultado: ${state.message}")
                 scope.launch {
                     snackbarHostState.showSnackbar(
                         message = state.message,
@@ -120,7 +144,7 @@ fun DiagnosticScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Diagnóstico - ${level.replaceFirstChar { it.uppercase() }}") },
+                title = { Text("Diagnóstico - $levelName") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, "Volver")
@@ -144,12 +168,11 @@ fun DiagnosticScreen(
                 is DiagnosticViewModel.LoadingState.Error -> {
                     ErrorRetryView(
                         error = (loadingState as DiagnosticViewModel.LoadingState.Error).message,
-                        onRetry = { viewModel.loadQuestions(courseId, level) }
+                        onRetry = { diagnosticViewModel.loadQuestions(courseId, level) }
                     )
                 }
                 is DiagnosticViewModel.LoadingState.Success -> {
                     if (questions.isNotEmpty()) {
-                        // Barra de progreso
                         LinearProgressIndicator(
                             progress = { (currentQuestionIndex + 1).toFloat() / questions.size },
                             modifier = Modifier.fillMaxWidth()
@@ -157,7 +180,6 @@ fun DiagnosticScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Pregunta actual
                         QuestionItem(
                             question = questions[currentQuestionIndex],
                             selectedAnswer = selectedAnswers[questions[currentQuestionIndex].id],
@@ -171,7 +193,6 @@ fun DiagnosticScreen(
 
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Controles de navegación
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -199,7 +220,7 @@ fun DiagnosticScreen(
                             } else {
                                 Button(
                                     onClick = {
-                                        viewModel.submitDiagnostic(
+                                        diagnosticViewModel.submitDiagnostic(
                                             courseId = courseId,
                                             level = level,
                                             answers = selectedAnswers,
@@ -277,7 +298,7 @@ private fun EmptyQuestionsView() {
 
 @Composable
 fun QuestionItem(
-    question: Question,
+    question: DiagnosticQuestion,
     selectedAnswer: String?,
     showResult: Boolean,
     onAnswerSelected: (String) -> Unit

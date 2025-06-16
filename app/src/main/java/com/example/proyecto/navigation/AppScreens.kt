@@ -22,22 +22,24 @@ sealed class AppScreens(open val route: String){
     object NivelUsuarioScreen : AppScreens("nivel_usuario")
 
     object DiagnosticScreen : AppScreens("diagnostic/{courseId}/{level}") {
-        fun createRoute(courseId: Int, level: String) = "diagnostic/$courseId/${level.lowercase()}"
+        fun createRoute(courseId: Int, level: Int) = "diagnostic/$courseId/$level"
     }
 
-    object DiagnosticResults : AppScreens(
-        "diagnostic_results/{courseId}/{level}/{startingSection}/{message}/{correctAnswers}/{totalQuestions}"
-    ) {
+    object DiagnosticResults : AppScreens("diagnostic_results") {
+        // Nueva definición que coincide con el backend
         fun createRoute(
-            courseId: Int,
-            level: String,
+            levelTested: Int,
+            passed: Boolean,
+            score: Double,
             startingSection: String,
-            message: String,
-            correctAnswers: Int,
-            totalQuestions: Int
-        ) = "diagnostic_results/$courseId/$level/$startingSection/${URLEncoder.encode(message, "UTF-8")}/$correctAnswers/$totalQuestions"
+            message: String
+        ): String {
+            return "diagnostic_results/" +
+                    "levelTested=$levelTested&" +
+                    "passed=$passed&" +
+                    "score=$score&" +
+                    "startingSection=${URLEncoder.encode(startingSection, "UTF-8")}&" +
+                    "message=${URLEncoder.encode(message, "UTF-8")}"
+        }
     }
-
-
-
 }

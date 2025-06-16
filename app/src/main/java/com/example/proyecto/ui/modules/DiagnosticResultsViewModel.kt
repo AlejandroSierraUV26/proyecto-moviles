@@ -32,45 +32,55 @@ class DiagnosticResultsViewModel (application: Application) : AndroidViewModel(a
         _result.value = null
     }
 
-    fun submitDiagnostic(courseId: Int, level: String, answers: Map<Int, String>, authToken: String) {
+    fun submitDiagnostic(courseId: Int, level: Int, answers: Map<Int, String>, authToken: String) {
         _state.value = ResultState.Loading
+        Log.d("DiagnosticResultsVM", "Enviando diagnóstico - CourseID: $courseId, Level: $level")
+        Log.d("DiagnosticResultsVM", "Respuestas: $answers")
+
         viewModelScope.launch {
             try {
+                val fullToken = if (authToken.startsWith("Bearer ")) authToken else "Bearer $authToken"
+                Log.d("DiagnosticResultsVM", "Token utilizado: ${fullToken.take(10)}...")
+
                 val response = RetrofitClient.apiService.submitDiagnostic(
-                    "Bearer $authToken",
+                    fullToken,
                     DiagnosticSubmission(
                         courseId = courseId,
-                        level = level,
+                        maxLevel = level,
                         answers = answers
                     )
                 )
 
+                Log.d("DiagnosticResultsVM", "Respuesta recibida - Código: ${response.code()}, Éxito: ${response.isSuccessful()}")
+
                 if (response.isSuccessful) {
                     response.body()?.let { result ->
-                        // Validación adicional de los datos recibidos
                         if (result.startingSection.isNotEmpty() && result.message.isNotEmpty()) {
+                            Log.d("DiagnosticResultsVM", "Resultado válido recibido: $result")
                             _result.value = result
                             _state.value = ResultState.Success(result)
                         } else {
+                            Log.e("DiagnosticResultsVM", "Datos incompletos del servidor")
                             _state.value = ResultState.Error("Datos incompletos del servidor")
                         }
                     } ?: run {
+                        Log.e("DiagnosticResultsVM", "Respuesta vacía del servidor")
                         _state.value = ResultState.Error("Respuesta vacía del servidor")
                     }
                 } else {
-                    // Manejo de errores mejorado
-                    _state.value = when (response.code()) {
-                        401 -> ResultState.Error("Sesión expirada, por favor inicia sesión nuevamente")
-                        404 -> ResultState.Error("Recurso no encontrado")
-                        in 500..599 -> ResultState.Error("Error del servidor, intenta más tarde")
-                        else -> ResultState.Error("Error desconocido: ${response.code()}")
+                    val errorMsg = when (response.code()) {
+                        401 -> "Sesión expirada (código 401)"
+                        404 -> "Recurso no encontrado (código 404)"
+                        in 500..599 -> "Error del servidor (código ${response.code()})"
+                        else -> "Error desconocido (código ${response.code()})"
                     }
+                    Log.e("DiagnosticResultsVM", errorMsg)
+                    _state.value = ResultState.Error(errorMsg)
                 }
             } catch (e: Exception) {
+                Log.e("DiagnosticResultsVM", "Excepción al enviar diagnóstico: ${e.javaClass.simpleName}", e)
                 _state.value = ResultState.Error("Error de conexión: ${e.localizedMessage ?: "Error desconocido"}")
-                Log.e("DiagnosticError", "Error al enviar diagnóstico", e)
             }
         }
     }
-
 }

@@ -11,6 +11,7 @@ import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
 import com.example.proyecto.data.models.ApiResponseWithData
 import com.example.proyecto.data.models.Course
+import com.example.proyecto.data.models.DiagnosticQuestion
 import com.example.proyecto.data.models.DiagnosticResult
 import com.example.proyecto.data.models.DiagnosticSubmission
 import com.example.proyecto.data.models.Section
@@ -118,46 +119,31 @@ interface ApiService {
         @Body submission: DiagnosticSubmission
     ): Response<DiagnosticResult>
 
-    @GET("sections/{sectionId}/questions")
-    suspend fun getQuestionsBySection(@Path("sectionId") sectionId: Int): Response<List<Question>>
 
-    /*@GET("exams/diagnostic-result/{courseId}/{level}")
+    @GET("exams/diagnostic-result/{courseId}/{level}")
     suspend fun getDiagnosticResult(
         @Path("courseId") courseId: Int,
         @Path("level") level: String
-    ): Response<DiagnosticResult>*/
+    ): Response<DiagnosticResult>
 
-    /*@POST("diagnostics/submit")
-    suspend fun submitDiagnostic(
-        @Body requestBody: DiagnosticSubmission  // Nombre claro para el parámetro
-    ): Response<DiagnosticResult>*/
+
 
     // Para obtener preguntas del diagnóstico (si lo implementas)
-    @GET("diagnostic/questions")
+    @GET("api/exams/diagnostic/questions")
     suspend fun getDiagnosticQuestions(
-        @Query("course_id") courseId: Int,
-        @Query("level") level: String
-    ): Response<List<Question>>
+        @Header("Authorization") token: String,
+        @Query("courseId") courseId: Int,
+        @Query("level") level: Int
+    ): Response<List<DiagnosticQuestion>>
+
 
     // Para enviar resultados del diagnóstico (como lo tienes en backend)
-    @POST("diagnostic")
+    @POST("api/exams/diagnostic/submit")
     suspend fun submitDiagnosticResults(
         @Header("Authorization") token: String,
         @Body submission: DiagnosticSubmission
     ): Response<DiagnosticResult>
 
-    /*@GET("section-questions/{courseId}/{sectionId}")
-    suspend fun getSectionQuestions(
-        @Path("courseId") courseId: Int,
-        @Path("sectionId") sectionId: Int
-    ): Response<List<Question>>
-*/
-
-    @Multipart
-    @POST("api/profile/image")
-    suspend fun uploadProfileImage(
-        @Part image: MultipartBody.Part
-    ): ProfileImageResponse
 
     @Multipart
     @PUT("api/profile/image")
