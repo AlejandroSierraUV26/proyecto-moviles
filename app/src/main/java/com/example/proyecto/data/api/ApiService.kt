@@ -11,6 +11,8 @@ import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
 import com.example.proyecto.data.models.ApiResponseWithData
 import com.example.proyecto.data.models.Course
+import com.example.proyecto.data.models.DiagnosticResult
+import com.example.proyecto.data.models.DiagnosticSubmission
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
 import com.example.proyecto.data.models.ExperienceData
@@ -39,6 +41,7 @@ import retrofit2.http.Part
 import java.io.File
 import java.io.FileOutputStream
 import com.example.proyecto.data.models.GoogleAuthRequest
+import retrofit2.http.Headers
 
 interface ApiService {
     @POST("api/register")
@@ -108,6 +111,47 @@ interface ApiService {
 
     @GET("api/profile/image")
     suspend fun getProfileImage(): ProfileImageResponse
+
+    @POST("api/exams/diagnostic")  // Asegúrate que coincida con tu backend
+    suspend fun submitDiagnostic(
+        @Header("Authorization") token: String,
+        @Body submission: DiagnosticSubmission
+    ): Response<DiagnosticResult>
+
+    @GET("sections/{sectionId}/questions")
+    suspend fun getQuestionsBySection(@Path("sectionId") sectionId: Int): Response<List<Question>>
+
+    /*@GET("exams/diagnostic-result/{courseId}/{level}")
+    suspend fun getDiagnosticResult(
+        @Path("courseId") courseId: Int,
+        @Path("level") level: String
+    ): Response<DiagnosticResult>*/
+
+    /*@POST("diagnostics/submit")
+    suspend fun submitDiagnostic(
+        @Body requestBody: DiagnosticSubmission  // Nombre claro para el parámetro
+    ): Response<DiagnosticResult>*/
+
+    // Para obtener preguntas del diagnóstico (si lo implementas)
+    @GET("diagnostic/questions")
+    suspend fun getDiagnosticQuestions(
+        @Query("course_id") courseId: Int,
+        @Query("level") level: String
+    ): Response<List<Question>>
+
+    // Para enviar resultados del diagnóstico (como lo tienes en backend)
+    @POST("diagnostic")
+    suspend fun submitDiagnosticResults(
+        @Header("Authorization") token: String,
+        @Body submission: DiagnosticSubmission
+    ): Response<DiagnosticResult>
+
+    /*@GET("section-questions/{courseId}/{sectionId}")
+    suspend fun getSectionQuestions(
+        @Path("courseId") courseId: Int,
+        @Path("sectionId") sectionId: Int
+    ): Response<List<Question>>
+*/
 
     @Multipart
     @POST("api/profile/image")

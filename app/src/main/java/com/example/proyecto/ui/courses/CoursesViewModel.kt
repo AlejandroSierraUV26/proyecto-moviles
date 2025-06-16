@@ -1,5 +1,6 @@
 package com.example.proyecto.ui.courses
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.ApiService
@@ -24,16 +25,13 @@ class CoursesViewModel : ViewModel() {
         // No cargamos cursos en el init para evitar cargas innecesarias
     }
 
+
     fun loadAvailableCourses() {
         viewModelScope.launch {
             try {
-                // Limpiar los cursos actuales antes de cargar los nuevos
-                _availableCourses.value = emptyList()
-                
-                val courses = RetrofitClient.apiService.getAllCourses()
-                _availableCourses.value = courses
+                _availableCourses.value = RetrofitClient.apiService.getAllCourses()
             } catch (e: Exception) {
-                // Manejar error
+                Log.e("COURSE_FLOW", "Error cargando cursos disponibles: ${e.message}")
             }
         }
     }
@@ -59,16 +57,36 @@ class CoursesViewModel : ViewModel() {
 
     fun selectCourse(course: Course) {
         _selectedCourse.value = course
+        Log.d("COURSE_FLOW", "Curso seleccionado en CoursesViewModel: ${course.title}")
     }
 
     fun addCourseToUser(courseId: Int) {
         viewModelScope.launch {
             try {
                 RetrofitClient.apiService.addCourseToUser(mapOf("courseId" to courseId))
-                // Recargar los cursos del usuario después de agregar uno nuevo
-                loadUserCourses()
+                Log.d("COURSE_FLOW", "Curso $courseId agregado al usuario")
             } catch (e: Exception) {
-                // Manejar error
+                Log.e("COURSE_FLOW", "Error agregando curso al usuario: ${e.message}")
+            }
+        }
+    }
+
+    fun addCourseWithNavigation(
+        course: Course,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                // 1. Seleccionar el curso
+                selectCourse(course)
+                // 2. Añadir el curso al usuario
+                addCourseToUser(course.id)
+                // 3. Notificar éxito
+                onSuccess()
+            } catch (e: Exception) {
+                // 4. Notificar error
+                onError("Error al seleccionar curso: ${e.message}")
             }
         }
     }

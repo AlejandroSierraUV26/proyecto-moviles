@@ -1,5 +1,6 @@
 package com.example.proyecto.navigation
 
+import android.app.Application
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -7,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -30,8 +32,13 @@ import com.example.proyecto.ui.settings.SettingsScreen
 import com.example.proyecto.ui.settings.EditProfileScreen
 import com.example.proyecto.ui.settings.DeleteCourseScreen
 import com.example.proyecto.ui.courses.CreateCoursesScreen
+import com.example.proyecto.ui.home.HomeViewModelFactory
 import com.example.proyecto.ui.modules.CargaScreen
 import com.example.proyecto.ui.modules.CourseEntryScreen
+import com.example.proyecto.ui.modules.DiagnosticResultsScreen
+import com.example.proyecto.ui.modules.DiagnosticScreen
+import com.example.proyecto.ui.modules.DiagnosticViewModel
+import com.example.proyecto.ui.modules.DiagnosticViewModelFactory
 import com.example.proyecto.ui.modules.NivelUsuarioScreen
 import com.example.proyecto.ui.modules.QuestionScreen
 import com.example.proyecto.ui.modules.QuizViewModel
@@ -40,9 +47,11 @@ import com.example.proyecto.ui.modules.ResultadosViewModel
 import com.example.proyecto.ui.modules.SeleCourseScreen
 import com.example.proyecto.ui.modules.SetPreguntasScreen
 import kotlinx.coroutines.delay
+import java.net.URLDecoder
+import kotlin.math.max
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(homeViewModel: HomeViewModel) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -103,8 +112,9 @@ fun AppNavigation() {
                 RecuperScreen(navController, viewModel)
             }
             composable(AppScreens.HomeScreen.route) {
-                HomeScreen(navController, viewModel = homeViewModel)
+                HomeScreen(navController)
             }
+
             composable(AppScreens.CoursesScreen.route) {
                 CoursesScreen(navController = navController, viewModel = coursesViewModel)
             }
@@ -122,6 +132,9 @@ fun AppNavigation() {
             }
             composable(AppScreens.DeleteCourseScreen.route) {
                 DeleteCourseScreen()
+            }
+            composable(AppScreens.CourseEntryScreen.route) {
+                CourseEntryScreen(navController)
             }
             composable(AppScreens.NivelUsuarioScreen.route) {
                 NivelUsuarioScreen(navController)
@@ -145,15 +158,11 @@ fun AppNavigation() {
                     onQuestionCreated = { navController.popBackStack() }
                 )
             }
-            composable(AppScreens.SeleCourseScreen.route) {
-                SeleCourseScreen(navController)
-            }
+
             composable(AppScreens.RecuperScreen.route) {
                 RecuperScreen(navController)
             }
-            composable(AppScreens.CourseEntryScreen.route) {
-                CourseEntryScreen(navController)
-            }
+
             composable(
                 route = "setPreguntas/{sectionId}/{difficultyLevel}",
                 arguments = listOf(
@@ -185,6 +194,90 @@ fun AppNavigation() {
                     examId = examId,
                     navController = navController,
                     quizViewModel = quizViewModel
+                )
+            }
+            composable(AppScreens.SeleCourseScreen.route) {
+                SeleCourseScreen(
+                    navController = navController,
+                    coursesViewModel = coursesViewModel,
+                    homeViewModel = homeViewModel
+                )
+            }
+
+            composable(
+                route = "diagnostic/{courseId}/{level}",  // Asegúrate que coincida exactamente
+                arguments = listOf(
+                    navArgument("courseId") { type = NavType.IntType },
+                    navArgument("level") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
+                val level = backStackEntry.arguments?.getString("level") ?: "basic"
+
+                // Usa el ViewModel con factory
+                val factory = DiagnosticViewModelFactory(LocalContext.current.applicationContext as Application)
+                val viewModel: DiagnosticViewModel = viewModel(factory = factory)
+
+                DiagnosticScreen(
+                    courseId = courseId,
+                    level = level,
+                    navController = navController,
+                )
+            }
+
+            composable(AppScreens.NivelUsuarioScreen.route) {
+                NivelUsuarioScreen(
+                    navController = navController,
+                    coursesViewModel = coursesViewModel,
+                    homeViewModel = homeViewModel
+                )
+            }
+            composable(
+                route = AppScreens.DiagnosticScreen.route,
+                arguments = listOf(
+                    navArgument("courseId") { type = NavType.IntType },
+                    navArgument("level") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
+                val level = backStackEntry.arguments?.getString("level") ?: "basic"
+
+                DiagnosticScreen(
+                    courseId = courseId,
+                    level = level,
+                    navController = navController
+                )
+            }
+            // En tu NavGraph principal
+            composable(
+                route = AppScreens.DiagnosticResults.route + "/{courseId}/{level}/{startingSection}/{message}/{correctAnswers}/{totalQuestions}",
+                arguments = listOf(
+                    navArgument("courseId") { type = NavType.IntType },
+                    navArgument("level") { type = NavType.StringType },
+                    navArgument("startingSection") { type = NavType.StringType },
+                    navArgument("message") { type = NavType.StringType },
+                    navArgument("correctAnswers") { type = NavType.IntType },
+                    navArgument("totalQuestions") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val courseId = backStackEntry.arguments?.getInt("courseId") ?: 0
+                val level = backStackEntry.arguments?.getString("level") ?: "basic"
+                val startingSection = backStackEntry.arguments?.getString("startingSection") ?: "1"
+                val message = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("message") ?: "",
+                    "UTF-8"
+                )
+                val correctAnswers = backStackEntry.arguments?.getInt("correctAnswers") ?: 0
+                val totalQuestions = backStackEntry.arguments?.getInt("totalQuestions") ?: 1
+
+                DiagnosticResultsScreen(
+                    courseId = courseId,
+                    level = level,
+                    startingSection = startingSection,
+                    message = message,
+                    correctAnswers = correctAnswers,
+                    totalQuestions = totalQuestions,
+                    navController = navController
                 )
             }
 

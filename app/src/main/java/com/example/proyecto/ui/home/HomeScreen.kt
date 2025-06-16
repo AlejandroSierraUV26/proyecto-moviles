@@ -1,5 +1,6 @@
 package com.example.proyecto.ui.home
 
+import android.app.Application
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,7 +23,12 @@ import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
 
 @Composable
-fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(navController: NavController) {
+
+    val application = LocalContext.current.applicationContext as Application
+    val viewModel: HomeViewModel = viewModel(
+        factory = HomeViewModelFactory(application) )
+
     val userCourses by viewModel.userCourses.collectAsState()
     val selectedCourse by viewModel.selectedCourse.collectAsState()
     val courseSections by viewModel.courseSections.collectAsState()
@@ -30,7 +37,9 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewMode
     val isLoading by viewModel.isLoading.collectAsState()
     var expandedCourse by remember { mutableStateOf(false) }
     var expandedSections by remember { mutableStateOf<Set<Int>>(emptySet()) }
-    
+
+
+
     // Cargar los cursos cuando se inicia el HomeScreen
     LaunchedEffect(Unit) {
         viewModel.loadUserCourses()

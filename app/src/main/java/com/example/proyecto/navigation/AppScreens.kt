@@ -1,6 +1,8 @@
 package com.example.proyecto.navigation
 
-sealed class AppScreens(val route: String){
+import java.net.URLEncoder
+
+sealed class AppScreens(open val route: String){
     object SplashScreen: AppScreens("splash_screen")
     object LoginScreen: AppScreens("login_screen")
     object RegisterScreen: AppScreens("register_screen")
@@ -17,5 +19,25 @@ sealed class AppScreens(val route: String){
     object ResultadosModuloScreen : AppScreens("resultados_modulo")
     object RecuperScreen : AppScreens("recuperacion-contraseña")
     object SeleCourseScreen: AppScreens("seleccion-curso")
-    object NivelUsuarioScreen: AppScreens("nivel_screen")
+    object NivelUsuarioScreen : AppScreens("nivel_usuario")
+
+    object DiagnosticScreen : AppScreens("diagnostic/{courseId}/{level}") {
+        fun createRoute(courseId: Int, level: String) = "diagnostic/$courseId/${level.lowercase()}"
+    }
+
+    object DiagnosticResults : AppScreens(
+        "diagnostic_results/{courseId}/{level}/{startingSection}/{message}/{correctAnswers}/{totalQuestions}"
+    ) {
+        fun createRoute(
+            courseId: Int,
+            level: String,
+            startingSection: String,
+            message: String,
+            correctAnswers: Int,
+            totalQuestions: Int
+        ) = "diagnostic_results/$courseId/$level/$startingSection/${URLEncoder.encode(message, "UTF-8")}/$correctAnswers/$totalQuestions"
+    }
+
+
+
 }

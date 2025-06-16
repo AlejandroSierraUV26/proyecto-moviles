@@ -1,19 +1,22 @@
 package com.example.proyecto.ui.home
 
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
 import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
+import com.example.proyecto.utils.SecurePreferences
 import com.example.proyecto.utils.SharedEvents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel (application: Application, savedStateHandle: SavedStateHandle? = null) : ViewModel() {
     private val _userCourses = MutableStateFlow<List<Course>>(emptyList())
     val userCourses: StateFlow<List<Course>> = _userCourses.asStateFlow()
 
@@ -29,13 +32,47 @@ class HomeViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val securePreferences = SecurePreferences(application)
+    private val _authToken = MutableStateFlow<String?>(null)
+    val authToken: StateFlow<String?> = _authToken.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _courseWithApprovedSections = MutableStateFlow<Course?>(null)
+    val courseWithApprovedSections: StateFlow<Course?> = _courseWithApprovedSections.asStateFlow()
+
 
     init {
         loadUserCourses()
         observeCourseDeletion()
+        loadAuthToken() // Load token when ViewModel starts
     }
+
+    fun loadAuthToken() {
+        viewModelScope.launch {
+            try {
+                val token = securePreferences.getToken()
+                _authToken.value = token
+                Log.d("AUTH", "Token cargado: ${token?.take(10)}...")
+            } catch (e: Exception) {
+                Log.e("AUTH", "Error cargando token", e)
+            }
+        }
+    }
+
+    fun updateToken(newToken: String) {
+        viewModelScope.launch {
+            try {
+                securePreferences.saveToken(newToken)
+                _authToken.value = newToken
+                Log.d("AUTH", "Token actualizado: ${newToken.take(10)}...")
+            } catch (e: Exception) {
+                Log.e("AUTH", "Error actualizando token", e)
+            }
+        }
+    }
+
 
     private fun observeCourseDeletion() {
         viewModelScope.launch {
@@ -52,20 +89,44 @@ class HomeViewModel : ViewModel() {
         }
     }
 
+    fun setSelectedCourse(courseId: Int) {
+        viewModelScope.launch {
+            try {
+                // Buscar el curso en la lista de cursos del usuario
+                val course = _userCourses.value.find { it.id == courseId }
+                course?.let {
+                    _selectedCourse.value = it
+                    loadCourseSections(it.id)
+                } ?: run {
+                    Log.e("HomeViewModel", "Curso con ID $courseId no encontrado")
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error al seleccionar curso: ${e.message}")
+            }
+        }
+    }
+
     fun loadUserCourses() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val courses = RetrofitClient.apiService.getUserCourses()
                 _userCourses.value = courses
-                
+
                 // Si no hay curso seleccionado y hay cursos disponibles, seleccionar el primero
                 if (_selectedCourse.value == null && courses.isNotEmpty()) {
-                    _selectedCourse.value = courses.first()
-                    // Cargar las secciones del primer curso
-                    loadCourseSections(courses.first().id)
+                    val firstCourse = courses.first()
+                    _selectedCourse.value = firstCourse
+                    loadCourseSections(firstCourse.id)
+                } else {
+                    // Actualizar el curso seleccionado si ya existe
+                    _selectedCourse.value?.let { selected ->
+                        courses.find { it.id == selected.id }?.let { updated ->
+                            _selectedCourse.value = updated
+                        }
+                    }
                 }
-                
+
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = "Error al cargar los cursos: ${e.message}"
@@ -79,6 +140,8 @@ class HomeViewModel : ViewModel() {
         _selectedCourse.value = course
         // Cargar las secciones del curso seleccionado
         loadCourseSections(course.id)
+
+        Log.d("COURSE_FLOW", "Curso seleccionado en HomeViewModel: ${course.title}")
     }
 
     fun clearState() {
@@ -86,6 +149,7 @@ class HomeViewModel : ViewModel() {
         _selectedCourse.value = null
         _courseSections.value = emptyList()
         _sectionExams.value = emptyMap()
+        _courseWithApprovedSections.value = null
         _error.value = null
         _isLoading.value = false
     }
@@ -101,6 +165,8 @@ class HomeViewModel : ViewModel() {
                     val sections = response.body() ?: emptyList()
                     Log.d("HomeViewModel", "Secciones cargadas: ${sections.size}")
                     _courseSections.value = sections
+                    // Actualizar las secciones aprobadas en el curso para el quiz
+
                 } else {
                     Log.e("HomeViewModel", "Error al cargar secciones: ${response.code()} - ${response.message()}")
                     _error.value = "Error al cargar secciones: ${response.message()}"
@@ -166,4 +232,4 @@ class HomeViewModel : ViewModel() {
             }
         }
     }
-} 
+}

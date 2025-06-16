@@ -13,24 +13,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.ui.courses.CoursesViewModel
+import com.example.proyecto.ui.home.HomeViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun SeleCourseScreen(
     navController: NavController,
-    viewModel: CoursesViewModel = viewModel()
+    coursesViewModel: CoursesViewModel = viewModel(),
+    homeViewModel: HomeViewModel = viewModel()
+
 ) {
-    val courses by viewModel.availableCourses.collectAsState()
+    val courses by coursesViewModel.availableCourses.collectAsState()
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Cargar los cursos disponibles
     LaunchedEffect(Unit) {
-        viewModel.loadAvailableCourses()
+        coursesViewModel.loadAvailableCourses()
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -65,7 +71,27 @@ fun SeleCourseScreen(
             items(courses) { course ->
                 Button(
                     onClick = {
-                        navController.navigate("${AppScreens.CargaScreen.route}/${AppScreens.NivelUsuarioScreen.route}")
+                        isLoading = true
+                        coursesViewModel.viewModelScope.launch {
+                            try {
+                                // 1. Seleccionar el curso en ambos ViewModels
+                                coursesViewModel.selectCourse(course)
+                                homeViewModel.selectCourse(course)
+
+                                // 2. Añadir el curso al usuario
+                                coursesViewModel.addCourseToUser(course.id)
+
+                                // 3. Esperar a que se actualice
+                                homeViewModel.loadUserCourses()
+
+                                // 4. Navegar
+                                navController.navigate(AppScreens.CourseEntryScreen.route)
+                            } catch (e: Exception) {
+                                errorMessage = "Error: ${e.message}"
+                            } finally {
+                                isLoading = false
+                            }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF052659)),
                     modifier = Modifier
@@ -73,21 +99,32 @@ fun SeleCourseScreen(
                         .aspectRatio(1f),
                     shape = RoundedCornerShape(16.dp),
                 ) {
-                    Text(
-                        text = course.title,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White)
+                    } else {
+                        Text(
+                            text = course.title,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    }
                 }
             }
         }
-
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = Color.Red,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
             onClick = {
-                navController.navigate(AppScreens.CoursesScreen.route) {
+                //Navegar a la pantalla de home ayudame a ccompletar
+                navController.navigate(AppScreens.HomeScreen.route) {
                     popUpTo(0) { inclusive = true }
                 }
             },

@@ -111,7 +111,7 @@ fun CourseEntryScreen(navController: NavController) {
                         }
                     }
                     "Hacer un quiz" -> {
-                        navController.navigate("${AppScreens.CargaScreen.route}/${AppScreens.SetPreguntasSreen.route}")
+                        navController.navigate(AppScreens.NivelUsuarioScreen.route)
                     }
                     else -> {
                         // No hacer nada si no hay selección

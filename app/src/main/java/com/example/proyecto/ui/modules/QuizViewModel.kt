@@ -58,6 +58,63 @@ class QuizViewModel : ViewModel() {
             }
         }
     }
+
+    // Añade esta función a tu QuizViewModel
+    fun loadDiagnosticQuestions(courseId: Int, level: String) {
+        _loadingState.value = LoadingState.Loading
+        viewModelScope.launch {
+            try {
+                // 1. Obtener todas las preguntas del curso (usando endpoint existente)
+                val allQuestions = mutableListOf<Question>()
+
+                // Primero obtener las secciones del curso
+                val sectionsResponse = RetrofitClient.apiService.getSectionsByCourse(courseId)
+                if (!sectionsResponse.isSuccessful) {
+                    _loadingState.value = LoadingState.Error("Error al obtener secciones del curso")
+                    return@launch
+                }
+
+                val sections = sectionsResponse.body() ?: emptyList()
+
+                // 2. Filtrar secciones según nivel (ejemplo básico)
+                val targetSections = when(level.lowercase()) {
+                    "intermediate" -> sections.take(2)
+                    "advanced" -> sections
+                    else -> sections.take(1) // básico por defecto
+                }
+
+                // 3. Obtener preguntas de cada sección
+                for (section in targetSections) {
+                    val examsResponse = RetrofitClient.apiService.getExamsBySection(section.id)
+                    if (examsResponse.isSuccessful) {
+                        examsResponse.body()?.forEach { exam ->
+                            val questionsResponse = RetrofitClient.apiService.getQuestionsByExam(exam.id)
+                            if (questionsResponse.isSuccessful) {
+                                questionsResponse.body()?.let { allQuestions.addAll(it) }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Seleccionar preguntas según nivel
+                val diagnosticQuestions = when(level.lowercase()) {
+                    "intermediate" -> allQuestions.take(10) // 10 preguntas para intermedio
+                    "advanced" -> allQuestions.shuffled().take(15) // 15 preguntas aleatorias para avanzado
+                    else -> allQuestions.take(5) // 5 preguntas para básico
+                }
+
+                if (diagnosticQuestions.isEmpty()) {
+                    _loadingState.value = LoadingState.Error("No se encontraron preguntas para este nivel")
+                } else {
+                    _questions.value = diagnosticQuestions
+                    _loadingState.value = LoadingState.Idle
+                }
+
+            } catch (e: Exception) {
+                _loadingState.value = LoadingState.Error("Error: ${e.message ?: "Error desconocido"}")
+            }
+        }
+    }
     fun clearQuizState() {
         _questions.value = emptyList()
         _userAnswers.value = emptyList()

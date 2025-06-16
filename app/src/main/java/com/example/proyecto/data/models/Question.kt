@@ -10,7 +10,8 @@ data class Question(
     @SerialName("questionText") val questionText: String,
     @SerialName("options") val options: List<String>,
     @SerialName("correctAnswer") val correctAnswer: String,
-    @SerialName("feedback") val feedback: String // Cambiado a no nullable
+    @SerialName("feedback") val feedback: String, // Cambiado a no nullable
+    @SerialName("dificultad") val difficultyLevel: Int
 )
 @Serializable
 data class QuestionRequest(
