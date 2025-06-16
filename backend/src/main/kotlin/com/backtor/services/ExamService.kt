@@ -550,66 +550,190 @@ class ExamService {
         val courseProgress = if (totalExams > 0) (totalCompletedExams * 100) / totalExams else 0
         CourseProgressResponse(courseProgress, sections)
     }
-    fun evaluateDiagnosticQuiz(email: String, submission: DiagnosticSubmission): Pair<String, Boolean> = transaction {
+    fun getDiagnosticQuestions(courseId: Int, maxLevel: Int): List<DiagnosticQuestion> = transaction {
+        // Get all sections of the course up to the selected level
+        val sections = SectionTable
+            .select {
+                (SectionTable.courseId eq courseId) and
+                        (SectionTable.difficultyLevel lessEq maxLevel)
+            }
+            .map { it[SectionTable.id] }
+
+        if (sections.isEmpty()) {
+            return@transaction emptyList()
+        }
+
+        // Get all exams in these sections
+        val exams = ExamTable
+            .select { ExamTable.sectionId inList sections }
+            .map { it[ExamTable.id] }
+
+        if (exams.isEmpty()) {
+            return@transaction emptyList()
+        }
+
+        // Get all questions from these exams
+        QuestionTable
+            .select { QuestionTable.examId inList exams }
+            .map {
+                DiagnosticQuestion(
+                    id = it[QuestionTable.id],
+                    examId = it[QuestionTable.examId],
+                    questionText = it[QuestionTable.questionText],
+                    options = it[QuestionTable.options].split("||"),
+                    difficultyLevel = ExamTable
+                        .select { ExamTable.id eq it[QuestionTable.examId] }
+                        .first()[ExamTable.difficultyLevel]
+                )
+            }
+    }
+    fun evaluateDiagnosticSubmission(email: String, submission: DiagnosticSubmission): DiagnosticFeedback = transaction {
         val userId = UserTable
             .select { UserTable.email eq email }
             .map { it[UserTable.id] }
             .firstOrNull() ?: throw IllegalArgumentException("Usuario no encontrado")
 
-        // Determinar los niveles a evaluar según la selección del usuario
-        val levelsToEvaluate = when (submission.level.toLowerCase()) {
-            "basic" -> listOf(1)
-            "intermediate" -> listOf(2, 3)
-            "advanced" -> listOf(4)
-            else -> throw IllegalArgumentException("Nivel no válido. Use 'basic', 'intermediate' o 'advanced'")
+        // Obtener todas las preguntas para los niveles solicitados
+        val allQuestions = getDiagnosticQuestions(submission.courseId, submission.maxLevel)
+        if (allQuestions.isEmpty()) {
+            throw IllegalArgumentException("No se encontraron preguntas para este curso y nivel")
         }
-        val sections = SectionTable
-            .select {
-                (SectionTable.courseId eq submission.courseId) and
-                        (SectionTable.difficultyLevel inList levelsToEvaluate)
-            }
-            .orderBy(SectionTable.difficultyLevel to SortOrder.ASC)
-            .toList()
-        var startingSectionTitle = "Nivel completo"
-        var hasIncompleteSection = false
-        for (section in sections) {
-            val sectionId = section[SectionTable.id]
-            val exams = ExamTable.select { ExamTable.sectionId eq sectionId }.toList()
-            var totalQuestions = 0
-            var correctAnswers = 0
-            for (exam in exams) {
-                val examId = exam[ExamTable.id]
-                val questions = QuestionTable.select { QuestionTable.examId eq examId }
-                for (q in questions) {
-                    val qid = q[QuestionTable.id]
-                    val userAnswer = submission.answers[qid]
-                    val correctAnswer = q[QuestionTable.correctAnswer]
-                    if (userAnswer != null) {
-                        totalQuestions++
-                        if (userAnswer == correctAnswer) correctAnswers++
-                    }
-                }
-                val scorePercentage = if (totalQuestions > 0) (correctAnswers * 100) / totalQuestions else 0
-                val isCompleted = scorePercentage >= 70
-                UserExamProgressTable.insert {
-                    it[UserExamProgressTable.userId] = userId
-                    it[UserExamProgressTable.examId] = examId
-                    it[questionsAnswered] = totalQuestions
-                    it[questionsCorrect] = correctAnswers
-                    it[completed] = isCompleted
-                    it[lastAttemptDate] = LocalDateTime.now()
-                    it[bestScore] = scorePercentage
-                }
-            }
-            val sectionScore = if (totalQuestions == 0) 0.0 else (correctAnswers.toDouble() / totalQuestions) * 100
-            if (sectionScore < 70.0 && !hasIncompleteSection) {
-                startingSectionTitle = section[SectionTable.title]
-                hasIncompleteSection = true
-            }
-        }
-        // Actualizar progreso general del curso solo para las secciones evaluadas
-        updateCourseProgress(userId, submission.courseId)
-        startingSectionTitle to hasIncompleteSection
-    }
 
+        // Agrupar preguntas por nivel de dificultad
+        val questionsByLevel = allQuestions.groupBy { it.difficultyLevel }
+        val results = mutableListOf<DiagnosticResult>()
+        var recommendedStartingSection: String? = null
+
+        // Función auxiliar para obtener respuesta correcta
+        fun getCorrectAnswer(questionId: Int): String = transaction {
+            QuestionTable
+                .select { QuestionTable.id eq questionId }
+                .single()[QuestionTable.correctAnswer]
+        }
+
+        // Evaluar cada nivel por separado
+        for (level in 1..submission.maxLevel) {
+            val levelQuestions = questionsByLevel[level] ?: emptyList()
+
+            if (levelQuestions.isEmpty()) {
+                results.add(DiagnosticResult(level, false, 0.0, null, "No hay preguntas para este nivel"))
+                continue
+            }
+
+            // Filtrar solo preguntas que fueron respondidas
+            val answeredQuestions = levelQuestions.filter { question ->
+                submission.answers.containsKey(question.id)
+            }
+
+            if (answeredQuestions.isEmpty()) {
+                results.add(DiagnosticResult(level, false, 0.0, null, "No respondiste preguntas de este nivel"))
+                continue
+            }
+
+            // Calcular respuestas correctas
+            val correctAnswers = answeredQuestions.count { question ->
+                submission.answers[question.id] == getCorrectAnswer(question.id)
+            }
+
+            // Calcular porcentaje basado en preguntas respondidas
+            val score = (correctAnswers.toDouble() / answeredQuestions.size) * 100
+            val passed = score >= 80.0
+
+            // Obtener título de la sección para recomendación
+            val sectionTitle = SectionTable
+                .select {
+                    (SectionTable.courseId eq submission.courseId) and
+                            (SectionTable.difficultyLevel eq level)
+                }
+                .limit(1)
+                .map { it[SectionTable.title] }
+                .firstOrNull()
+
+            results.add(
+                DiagnosticResult(
+                    levelTested = level,
+                    passed = passed,
+                    score = score,
+                    startingSection = sectionTitle,
+                    message = if (passed)
+                        "¡Aprobaste el nivel $level con ${"%.1f".format(score)}%!"
+                    else
+                        "Necesitas mejorar en el nivel $level (${"%.1f".format(score)}%)"
+                )
+            )
+
+            // Determinar sección de inicio recomendada
+            if (!passed && recommendedStartingSection == null) {
+                recommendedStartingSection = sectionTitle
+            }
+
+            // Actualizar progreso para cada examen en este nivel
+            val examIds = levelQuestions.map { it.examId }.distinct()
+            for (examId in examIds) {
+                val examQuestions = levelQuestions.filter { it.examId == examId }
+                val answeredExamQuestions = examQuestions.filter { submission.answers.containsKey(it.id) }
+
+                if (answeredExamQuestions.isNotEmpty()) {
+                    val examCorrect = answeredExamQuestions.count { question ->
+                        submission.answers[question.id] == getCorrectAnswer(question.id)
+                    }
+
+                    val examScore = (examCorrect.toDouble() / answeredExamQuestions.size) * 100
+                    val isCompleted = examScore >= 70.0
+
+                    // Verificar si ya existe progreso para este examen
+                    val existingProgress = UserExamProgressTable
+                        .select {
+                            (UserExamProgressTable.userId eq userId) and
+                                    (UserExamProgressTable.examId eq examId)
+                        }
+                        .firstOrNull()
+
+                    if (existingProgress == null) {
+                        // Insertar nuevo progreso
+                        UserExamProgressTable.insert {
+                            it[UserExamProgressTable.userId] = userId
+                            it[UserExamProgressTable.examId] = examId
+                            it[UserExamProgressTable.questionsAnswered] = answeredExamQuestions.size
+                            it[UserExamProgressTable.questionsCorrect] = examCorrect
+                            it[UserExamProgressTable.completed] = isCompleted
+                            it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                            it[UserExamProgressTable.bestScore] = examScore.toInt()
+                        }
+                    } else {
+                        // Actualizar progreso existente
+                        UserExamProgressTable.update({
+                            (UserExamProgressTable.userId eq userId) and
+                                    (UserExamProgressTable.examId eq examId)
+                        }) {
+                            it[UserExamProgressTable.questionsAnswered] = existingProgress[UserExamProgressTable.questionsAnswered] + answeredExamQuestions.size
+                            it[UserExamProgressTable.questionsCorrect] = existingProgress[UserExamProgressTable.questionsCorrect] + examCorrect
+                            it[UserExamProgressTable.completed] = isCompleted || existingProgress[UserExamProgressTable.completed]
+                            it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                            it[UserExamProgressTable.bestScore] = maxOf(existingProgress[UserExamProgressTable.bestScore], examScore.toInt())
+                        }
+                    }
+
+                    // Actualizar progreso del curso
+                    updateCourseProgress(userId, examId)
+                }
+            }
+        }
+
+        // Determinar resultado general
+        val passedAll = results.all { it.passed }
+        val overallMessage = if (passedAll) {
+            "¡Felicidades! Dominas todos los niveles evaluados."
+        } else {
+            recommendedStartingSection?.let { "Recomendamos comenzar con: $it" }
+                ?: "Por favor revisa tus resultados."
+        }
+
+        DiagnosticFeedback(
+            results = results,
+            overallResult = overallMessage,
+            recommendedStartingSection = recommendedStartingSection ?:
+            results.lastOrNull()?.startingSection ?: "No se pudo determinar"
+        )
+    }
 }
