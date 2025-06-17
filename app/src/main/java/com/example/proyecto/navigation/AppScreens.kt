@@ -1,6 +1,11 @@
 package com.example.proyecto.navigation
 
+import androidx.navigation.NavBackStackEntry
+import com.example.proyecto.data.models.DiagnosticFeedback
+import com.google.gson.Gson
+import java.net.URLDecoder
 import java.net.URLEncoder
+
 
 sealed class AppScreens(open val route: String){
     object SplashScreen: AppScreens("splash_screen")
@@ -26,20 +31,28 @@ sealed class AppScreens(open val route: String){
     }
 
     object DiagnosticResults : AppScreens("diagnostic_results") {
-        // Nueva definición que coincide con el backend
-        fun createRoute(
-            levelTested: Int,
-            passed: Boolean,
-            score: Double,
-            startingSection: String,
-            message: String
-        ): String {
-            return "diagnostic_results/" +
-                    "levelTested=$levelTested&" +
-                    "passed=$passed&" +
-                    "score=$score&" +
-                    "startingSection=${URLEncoder.encode(startingSection, "UTF-8")}&" +
-                    "message=${URLEncoder.encode(message, "UTF-8")}"
+        // Ruta base sin argumentos
+        const val ROUTE = "diagnostic_results"
+
+        // Ruta con parámetros definidos (para usar en NavHost)
+        const val routeWithArgs = "$ROUTE?feedbackJson={feedbackJson}"
+
+        // Función para crear la ruta con argumentos
+        fun createRoute(feedback: DiagnosticFeedback): String {
+            val json = Gson().toJson(feedback)
+            val encodedJson = URLEncoder.encode(json, "UTF-8")
+            return "$ROUTE?feedbackJson=$encodedJson"
+        }
+
+        // Función para parsear los argumentos (opcional, útil si necesitas parsear en varios lugares)
+        fun parseFeedback(backStackEntry: NavBackStackEntry): DiagnosticFeedback? {
+            val json = backStackEntry.arguments?.getString("feedbackJson") ?: return null
+            val decodedJson = URLDecoder.decode(json, "UTF-8")
+            return try {
+                Gson().fromJson(decodedJson, DiagnosticFeedback::class.java)
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 }

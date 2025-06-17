@@ -18,9 +18,3 @@ data class DiagnosticQuestion(
     val correctAnswer: String, // Asegúrate de que exista
 )
 
-@Serializable
-data class DiagnosticFeedback(
-   val result: List<DiagnosticResult>,
-   val overallResult: String,
-   val recommendedStartingSection: String,
-)

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
     kotlin("plugin.serialization") version "1.9.22"
+    id ("kotlin-parcelize") // <-- Añade este plugin
 }
 
 android {
@@ -94,6 +95,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("io.coil-kt:coil-compose:2.4.0")
 
+    
     //Google
     implementation ("com.google.android.gms:play-services-auth:20.7.0")
     implementation ("com.google.android.gms:play-services-auth:20.7.0")

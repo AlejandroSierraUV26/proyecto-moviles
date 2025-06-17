@@ -8,22 +8,39 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.proyecto.data.api.RetrofitClient
+import com.example.proyecto.data.models.DiagnosticFeedback
 import com.example.proyecto.data.models.DiagnosticQuestion
 import com.example.proyecto.data.models.DiagnosticResult
 import com.example.proyecto.data.models.DiagnosticSubmission
 import com.example.proyecto.data.models.Question
+import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.Response
 
 class DiagnosticViewModel(application: Application) : AndroidViewModel(application) {
+    private val _levelTested = MutableStateFlow(0)
+    val levelTested: StateFlow<Int> = _levelTested.asStateFlow()
+    private val _passed = MutableStateFlow(false)
+    val passed: StateFlow<Boolean> = _passed.asStateFlow()
+    private val _score = MutableStateFlow(0.0)
+    val score: StateFlow<Double> = _score.asStateFlow()
+    private val _startingSection = MutableStateFlow("")
+    val startingSection: StateFlow<String> = _startingSection.asStateFlow()
+    private val _message = MutableStateFlow("")
+    val message: StateFlow<String> = _message.asStateFlow()
+
+
+    private val _feedback = MutableStateFlow<DiagnosticFeedback?>(null)
+    val feedback: StateFlow<DiagnosticFeedback?> = _feedback.asStateFlow()
     private val _questions = MutableStateFlow<List<DiagnosticQuestion>>(emptyList())
     val questions: StateFlow<List<DiagnosticQuestion>> = _questions
-
+    private val _diagnosticFeedback = MutableStateFlow<DiagnosticFeedback?>(null)
+    val diagnosticFeedback: StateFlow<DiagnosticFeedback?> = _diagnosticFeedback.asStateFlow()
     private val _loadingState = MutableStateFlow<LoadingState>(LoadingState.Idle)
     val loadingState: StateFlow<LoadingState> = _loadingState
-
     private val _resultState = MutableStateFlow<ResultState>(ResultState.Idle)
     val resultState: StateFlow<ResultState> = _resultState
 
@@ -43,13 +60,15 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
         Log.d("DiagnosticVM", "Token establecido: ${authToken?.take(10)}... (longitud: ${authToken?.length})")
     }
 
+
+
     sealed class ResultState {
         object Idle : ResultState()
         object Loading : ResultState()
-        data class Success(val result: DiagnosticResult) : ResultState()
+        // Cambiar de DiagnosticResult a DiagnosticFeedback
+        data class Success(val feedback: DiagnosticFeedback) : ResultState()
         data class Error(val message: String) : ResultState()
     }
-
 
 
     fun loadQuestions(courseId: Int, level: Int) {
@@ -104,52 +123,54 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun submitDiagnostic(
-        courseId: Int,
-        level: Int,
-        answers: Map<Int, String>,
-        authToken: String
-    ) {
+    fun submitDiagnostic(courseId: Int, level: Int, answers: Map<Int, String>) {
+        _resultState.value = ResultState.Loading
+
         viewModelScope.launch {
-            _resultState.value = ResultState.Loading
-            Log.d("DiagnosticVM", "Enviando diagnóstico - CourseID: $courseId, Level: $level")
-            Log.d("DiagnosticVM", "Respuestas a enviar: $answers")
-
             try {
-                val fullToken = if (authToken.startsWith("Bearer ")) authToken else "Bearer $authToken"
-                Log.d("DiagnosticVM", "Token para envío: ${fullToken.take(10)}...")
+                val token = authToken ?: throw Exception("Token no disponible")
 
+                // Primero validar localmente las respuestas
+                val questions = _questions.value
+                // Validación local
+                val validationResults = mutableMapOf<Int, Boolean>().apply {
+                    answers.forEach { (questionId, selectedAnswer) ->
+                        val question = questions.find { it.id == questionId }
+                        // Si no hay respuesta correcta, asumir que la seleccionada es correcta
+                        val isCorrect = question?.correctAnswer?.let { it == selectedAnswer } ?: true
+                        put(questionId, isCorrect)
+                    }
+                }
+
+                answers.forEach { (questionId, selectedAnswer) ->
+                    val question = questions.find { it.id == questionId }
+                    question?.let {
+                        validationResults[questionId] = (selectedAnswer == it.correctAnswer)
+                    }
+                }
+
+                Log.d("DiagnosticVM", "Validación local: $validationResults")
+
+                // Luego enviar al servidor
                 val response = RetrofitClient.apiService.submitDiagnosticResults(
-                    token = fullToken,
+                    token = token,
                     submission = DiagnosticSubmission(
                         courseId = courseId,
                         maxLevel = level,
                         answers = answers
                     )
                 )
-
-                Log.d("DiagnosticVM", "Respuesta del diagnóstico - Código: ${response.code()}, Éxito: ${response.isSuccessful}")
-
                 if (response.isSuccessful) {
-                    response.body()?.let { diagnosticResult ->
-                        Log.d("DiagnosticVM", "Resultado recibido: $diagnosticResult")
-                        _resultState.value = ResultState.Success(diagnosticResult)
+                    response.body()?.let { feedback ->
+                        _resultState.value = ResultState.Success(feedback)
                     } ?: run {
-                        Log.e("DiagnosticVM", "Respuesta exitosa pero cuerpo vacío")
                         _resultState.value = ResultState.Error("Respuesta vacía del servidor")
                     }
                 } else {
-                    val errorMsg = when (response.code()) {
-                        401 -> "Token inválido o expirado"
-                        400 -> "Solicitud mal formada"
-                        else -> "Error del servidor: ${response.code()}"
-                    }
-                    Log.e("DiagnosticVM", "$errorMsg - Mensaje: ${response.message()}")
-                    _resultState.value = ResultState.Error(errorMsg)
+                    _resultState.value = ResultState.Error("Error del servidor: ${response.code()}")
                 }
             } catch (e: Exception) {
-                Log.e("DiagnosticVM", "Excepción al enviar diagnóstico: ${e.javaClass.simpleName}", e)
-                _resultState.value = ResultState.Error("Error de conexión: ${e.message}")
+                _resultState.value = ResultState.Error("Error de conexión: ${e.localizedMessage}")
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.example.proyecto.ui.modules
 
+import android.R.id.message
 import android.app.Application
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
@@ -29,6 +30,8 @@ import com.example.proyecto.navigation.AppScreens
 import com.example.proyecto.data.models.DiagnosticResult
 import com.example.proyecto.ui.home.HomeViewModel
 import com.example.proyecto.ui.home.HomeViewModelFactory
+import com.google.android.material.color.utilities.Score.score
+import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
@@ -43,7 +46,8 @@ fun DiagnosticScreen(
     Log.d("DiagnosticScreen", "courseId: $courseId, level: $level")
     Log.d("DiagnosticScreen", "Iniciando pantalla de diagnóstico para courseId: $courseId, level: $level")
 
-
+    val diagnosticViewModel: DiagnosticViewModel = viewModel()
+    val diagnosticResultsViewModel: DiagnosticResultsViewModel = viewModel()
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val backStackEntry = navController.currentBackStackEntryAsState().value
@@ -109,37 +113,23 @@ fun DiagnosticScreen(
         Log.d("DiagnosticScreen", "Respuestas seleccionadas actualizadas: $selectedAnswers")
     }
 
-
-    LaunchedEffect(resultState) {
-        when (val state = resultState) {
-            is DiagnosticViewModel.ResultState.Success -> {
-                val result = state.result
-                Log.d("DiagnosticScreen", "Resultado exitoso: $result")
-                navController.navigate(
-                    AppScreens.DiagnosticResults.createRoute(
-                        levelTested = result.levelTested, // Usamos el levelTested del resultado
-                        passed = result.passed,
-                        score = result.score,
-                        startingSection = URLEncoder.encode(result.startingSection, "UTF-8"),
-                        message = URLEncoder.encode(result.message, "UTF-8")
-                    )
-                ) {
-                    popUpTo(AppScreens.DiagnosticScreen.route) { inclusive = true }
+// En tu DiagnosticScreen o donde manejas la navegación:
+    LaunchedEffect(diagnosticViewModel.resultState) {
+        diagnosticViewModel.resultState.collect { state ->
+            when (state) {
+                is DiagnosticViewModel.ResultState.Success -> {
+                    val feedback = state.feedback
+                    // Convertir a JSON aquí mismo para asegurarnos
+                    val json = Gson().toJson(feedback)
+                    val encodedJson = URLEncoder.encode(json, "UTF-8")
+                    navController.navigate("diagnostic_results?feedbackJson=$encodedJson") {
+                        popUpTo(AppScreens.DiagnosticScreen.route)
+                    }
                 }
+                else -> {}
             }
-            is DiagnosticViewModel.ResultState.Error -> {
-                Log.e("DiagnosticScreen", "Error en el resultado: ${state.message}")
-                scope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = state.message,
-                        duration = SnackbarDuration.Long
-                    )
-                }
-            }
-            else -> {}
         }
     }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -185,9 +175,19 @@ fun DiagnosticScreen(
                             selectedAnswer = selectedAnswers[questions[currentQuestionIndex].id],
                             showResult = showResult,
                             onAnswerSelected = { answer ->
-                                selectedAnswers = selectedAnswers +
-                                        (questions[currentQuestionIndex].id to answer)
+                                val currentQuestion = questions[currentQuestionIndex]
+                                selectedAnswers = selectedAnswers + (currentQuestion.id to answer)
                                 showResult = true
+
+                                // Log detallado de validación
+                                Log.d("VALIDATION", "===== Validación de Respuesta =====")
+                                Log.d("VALIDATION", "Pregunta ID: ${currentQuestion.id}")
+                                Log.d("VALIDATION", "Texto pregunta: ${currentQuestion.questionText}")
+                                Log.d("VALIDATION", "Opción seleccionada: $answer")
+                                Log.d("VALIDATION", "Respuesta correcta: ${currentQuestion.correctAnswer}")
+                                Log.d("VALIDATION", "Es correcta: ${answer == currentQuestion.correctAnswer}")
+                                Log.d("VALIDATION", "Todas opciones: ${currentQuestion.options.joinToString()}")
+                                Log.d("VALIDATION", "=================================")
                             }
                         )
 
@@ -195,27 +195,19 @@ fun DiagnosticScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.End // Solo botón a la derecha
                         ) {
-                            Button(
-                                onClick = {
-                                    currentQuestionIndex--
-                                    showResult = false
-                                },
-                                enabled = currentQuestionIndex > 0
-                            ) {
-                                Text("Anterior")
-                            }
-
                             if (currentQuestionIndex < questions.size - 1) {
                                 Button(
                                     onClick = {
                                         currentQuestionIndex++
                                         showResult = false
                                     },
-                                    enabled = selectedAnswers.containsKey(questions[currentQuestionIndex].id)
+                                    enabled = selectedAnswers.containsKey(questions[currentQuestionIndex].id),
+                                    modifier = Modifier.height(48.dp),
+                                    shape = RoundedCornerShape(24.dp)
                                 ) {
-                                    Text("Siguiente")
+                                    Text("Continuar")
                                 }
                             } else {
                                 Button(
@@ -223,11 +215,12 @@ fun DiagnosticScreen(
                                         diagnosticViewModel.submitDiagnostic(
                                             courseId = courseId,
                                             level = level,
-                                            answers = selectedAnswers,
-                                            authToken = authToken!!
+                                            answers = selectedAnswers
                                         )
                                     },
-                                    enabled = selectedAnswers.containsKey(questions[currentQuestionIndex].id)
+                                    enabled = selectedAnswers.containsKey(questions[currentQuestionIndex].id),
+                                    modifier = Modifier.height(48.dp),
+                                    shape = RoundedCornerShape(24.dp)
                                 ) {
                                     Text("Finalizar")
                                 }
@@ -311,8 +304,7 @@ fun QuestionItem(
     ) {
         Text(
             text = question.questionText,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 24.dp)
         )
@@ -322,34 +314,29 @@ fun QuestionItem(
             val isSelected = option == selectedAnswer
 
             val borderColor = when {
-                showResult && isCorrect -> Color(0xFF4CAF50)
-                showResult && isSelected && !isCorrect -> Color(0xFFF44336)
-                isSelected -> Color(0xFF163DA8)
+                isSelected -> Color(0xFF2196F3) // Azul para seleccionado
                 else -> Color.Gray.copy(alpha = 0.5f)
             }
 
             val backgroundColor = when {
-                showResult && isCorrect -> Color(0xFFA5D6A7)
-                showResult && isSelected && !isCorrect -> Color(0xFFEF9A9A)
-                isSelected -> Color(0xFF95A3F3)
+                isSelected -> Color(0xFFE3F2FD)
                 else -> Color.Transparent
             }
 
-            val textColor = when {
-                showResult && isCorrect -> Color(0xFF1B5E20)
-                showResult && isSelected && !isCorrect -> Color(0xFFB71C1C)
-                isSelected -> Color(0xFF052659)
-                else -> if (isSystemInDarkTheme()) Color.White else Color.Black
-            }
+            val textColor = if (isSystemInDarkTheme()) Color.White else Color.Black
 
             OutlinedButton(
-                onClick = { onAnswerSelected(option) },
+                onClick = {
+                    if (!showResult) {
+                        onAnswerSelected(option)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .height(72.dp),
-                shape = RoundedCornerShape(32.dp),
-                border = BorderStroke(width = 2.dp, color = borderColor),
+                    .padding(vertical = 4.dp)
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, borderColor),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = backgroundColor,
                     contentColor = textColor
@@ -358,8 +345,8 @@ fun QuestionItem(
             ) {
                 Text(
                     text = option,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }

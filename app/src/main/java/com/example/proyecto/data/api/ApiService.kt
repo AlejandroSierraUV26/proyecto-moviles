@@ -11,6 +11,7 @@ import com.example.proyecto.data.models.UserProfile
 import com.example.proyecto.data.models.ApiResponse
 import com.example.proyecto.data.models.ApiResponseWithData
 import com.example.proyecto.data.models.Course
+import com.example.proyecto.data.models.DiagnosticFeedback
 import com.example.proyecto.data.models.DiagnosticQuestion
 import com.example.proyecto.data.models.DiagnosticResult
 import com.example.proyecto.data.models.DiagnosticSubmission
@@ -42,6 +43,7 @@ import retrofit2.http.Part
 import java.io.File
 import java.io.FileOutputStream
 import com.example.proyecto.data.models.GoogleAuthRequest
+import com.example.proyecto.data.models.ProgressResponse
 import retrofit2.http.Headers
 
 interface ApiService {
@@ -137,12 +139,18 @@ interface ApiService {
     ): Response<List<DiagnosticQuestion>>
 
 
+    @GET("progress/{courseId}")
+    suspend fun getCourseProgress(
+        @Header("Authorization") token: String,
+        @Path("courseId") courseId: Int
+    ): Response<ProgressResponse>
+
     // Para enviar resultados del diagnóstico (como lo tienes en backend)
     @POST("api/exams/diagnostic/submit")
     suspend fun submitDiagnosticResults(
         @Header("Authorization") token: String,
         @Body submission: DiagnosticSubmission
-    ): Response<DiagnosticResult>
+    ): Response<DiagnosticFeedback> // Debe devolver DiagnosticFeedback, no DiagnosticResult
 
 
     @Multipart

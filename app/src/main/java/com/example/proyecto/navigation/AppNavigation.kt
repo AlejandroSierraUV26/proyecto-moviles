@@ -1,6 +1,7 @@
 package com.example.proyecto.navigation
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -17,6 +18,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.proyecto.data.models.DiagnosticFeedback
+import com.example.proyecto.navigation.AppScreens.DiagnosticResults
 import com.example.proyecto.navigation.AppScreens.ResultadosModuloScreen
 import com.example.proyecto.ui.auth.LoginScreen
 import com.example.proyecto.ui.auth.PasswordRecoveryViewModel
@@ -36,6 +39,7 @@ import com.example.proyecto.ui.home.HomeViewModelFactory
 import com.example.proyecto.ui.modules.CargaScreen
 import com.example.proyecto.ui.modules.CourseEntryScreen
 import com.example.proyecto.ui.modules.DiagnosticResultsScreen
+import com.example.proyecto.ui.modules.DiagnosticResultsViewModel
 import com.example.proyecto.ui.modules.DiagnosticScreen
 import com.example.proyecto.ui.modules.DiagnosticViewModel
 import com.example.proyecto.ui.modules.DiagnosticViewModelFactory
@@ -46,7 +50,9 @@ import com.example.proyecto.ui.modules.ResultadosModuloScreen
 import com.example.proyecto.ui.modules.ResultadosViewModel
 import com.example.proyecto.ui.modules.SeleCourseScreen
 import com.example.proyecto.ui.modules.SetPreguntasScreen
+import com.google.gson.Gson
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.Json
 import java.net.URLDecoder
 import kotlin.math.max
 
@@ -139,7 +145,6 @@ fun AppNavigation(homeViewModel: HomeViewModel) {
             composable(AppScreens.NivelUsuarioScreen.route) {
                 NivelUsuarioScreen(navController)
             }
-            // En tu archivo de navegación (AppNavigation.kt o similar)
 
             composable(
                 route = "${AppScreens.SetPreguntasSreen.route}/{sectionId}/{difficultyLevel}",
@@ -245,55 +250,36 @@ fun AppNavigation(homeViewModel: HomeViewModel) {
                     navController = navController,
                 )
             }
-            // En tu NavGraph principal
+
             composable(
-                route = "diagnostic_results/" +
-                        "levelTested={levelTested}&" +
-                        "passed={passed}&" +
-                        "score={score}&" +
-                        "startingSection={startingSection}&" +
-                        "message={message}",
+                route = AppScreens.DiagnosticResults.routeWithArgs, // Usamos la ruta con argumentos definida en AppScreens
                 arguments = listOf(
-                    navArgument("levelTested") {
-                        type = NavType.IntType
-                        defaultValue = 1 // Valor por defecto si no se proporciona
-                    },
-                    navArgument("passed") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    },
-                    navArgument("score") {
-                        type = NavType.FloatType
-                        defaultValue = 0.0f
-                    },
-                    navArgument("startingSection") {
+                    navArgument("feedbackJson") {
                         type = NavType.StringType
-                        nullable = true // Si puede ser null
-                        defaultValue = ""
-                    },
-                    navArgument("message") {
-                        type = NavType.StringType
-                        defaultValue = ""
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
-                // Extraemos los argumentos aquí
-                val levelTested = backStackEntry.arguments?.getInt("levelTested") ?: 1
-                val passed = backStackEntry.arguments?.getBoolean("passed") ?: false
-                val score = backStackEntry.arguments?.getFloat("score")?.toDouble() ?: 0.0
-                val startingSection = backStackEntry.arguments?.getString("startingSection") ?: ""
-                val message = backStackEntry.arguments?.getString("message") ?: ""
+                // Obtenemos el JSON codificado de los argumentos
+                val feedbackJson = backStackEntry.arguments?.getString("feedbackJson")
 
+                // Obtenemos el ViewModel
+                val viewModel: DiagnosticResultsViewModel = viewModel()
+
+                // Procesamos el JSON si existe
+                LaunchedEffect(feedbackJson) {
+                    if (feedbackJson != null) {
+                        viewModel.processFeedbackJson(feedbackJson)
+                    }
+                }
+
+                // Pantalla de resultados
                 DiagnosticResultsScreen(
                     navController = navController,
-                    levelTested = levelTested,
-                    passed = passed,
-                    score = score,
-                    startingSection = startingSection,
-                    message = message
+                    viewModel = viewModel
                 )
             }
-
             composable(
                 route = "resultados_modulo/{moduloId}",
                 arguments = listOf(navArgument("moduloId") { type = NavType.IntType })

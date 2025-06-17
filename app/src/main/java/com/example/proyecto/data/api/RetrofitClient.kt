@@ -43,6 +43,7 @@ object RetrofitClient {
     }
 
 
+
     private fun createRetrofitInstance() {
         val authInterceptor = object : Interceptor {
             @Throws(IOException::class)
@@ -90,6 +91,7 @@ object RetrofitClient {
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create()) // Conversores se mantienen
+            .addConverterFactory(Json.asConverterFactory("application/json".toMediaType()))
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
     }
