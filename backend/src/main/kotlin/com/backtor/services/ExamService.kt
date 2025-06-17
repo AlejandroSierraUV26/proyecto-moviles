@@ -551,7 +551,6 @@ class ExamService {
         CourseProgressResponse(courseProgress, sections)
     }
     fun getDiagnosticQuestions(courseId: Int, maxLevel: Int): List<DiagnosticQuestion> = transaction {
-        // Get all sections of the course up to the selected level
         val sections = SectionTable
             .select {
                 (SectionTable.courseId eq courseId) and
@@ -559,20 +558,14 @@ class ExamService {
             }
             .map { it[SectionTable.id] }
 
-        if (sections.isEmpty()) {
-            return@transaction emptyList()
-        }
+        if (sections.isEmpty()) return@transaction emptyList()
 
-        // Get all exams in these sections
         val exams = ExamTable
             .select { ExamTable.sectionId inList sections }
             .map { it[ExamTable.id] }
 
-        if (exams.isEmpty()) {
-            return@transaction emptyList()
-        }
+        if (exams.isEmpty()) return@transaction emptyList()
 
-        // Get all questions from these exams
         QuestionTable
             .select { QuestionTable.examId inList exams }
             .map {
@@ -581,6 +574,7 @@ class ExamService {
                     examId = it[QuestionTable.examId],
                     questionText = it[QuestionTable.questionText],
                     options = it[QuestionTable.options].split("||"),
+                    correctAnswer = it[QuestionTable.correctAnswer], // Incluir respuesta correcta
                     difficultyLevel = ExamTable
                         .select { ExamTable.id eq it[QuestionTable.examId] }
                         .first()[ExamTable.difficultyLevel]
@@ -593,25 +587,17 @@ class ExamService {
             .map { it[UserTable.id] }
             .firstOrNull() ?: throw IllegalArgumentException("Usuario no encontrado")
 
-        // Obtener todas las preguntas para los niveles solicitados
         val allQuestions = getDiagnosticQuestions(submission.courseId, submission.maxLevel)
         if (allQuestions.isEmpty()) {
             throw IllegalArgumentException("No se encontraron preguntas para este curso y nivel")
         }
 
-        // Agrupar preguntas por nivel de dificultad
         val questionsByLevel = allQuestions.groupBy { it.difficultyLevel }
         val results = mutableListOf<DiagnosticResult>()
         var recommendedStartingSection: String? = null
+        var isCourseCompleted = false
 
-        // Función auxiliar para obtener respuesta correcta
-        fun getCorrectAnswer(questionId: Int): String = transaction {
-            QuestionTable
-                .select { QuestionTable.id eq questionId }
-                .single()[QuestionTable.correctAnswer]
-        }
-
-        // Evaluar cada nivel por separado
+        // Evaluar cada nivel
         for (level in 1..submission.maxLevel) {
             val levelQuestions = questionsByLevel[level] ?: emptyList()
 
@@ -620,7 +606,6 @@ class ExamService {
                 continue
             }
 
-            // Filtrar solo preguntas que fueron respondidas
             val answeredQuestions = levelQuestions.filter { question ->
                 submission.answers.containsKey(question.id)
             }
@@ -630,16 +615,13 @@ class ExamService {
                 continue
             }
 
-            // Calcular respuestas correctas
             val correctAnswers = answeredQuestions.count { question ->
-                submission.answers[question.id] == getCorrectAnswer(question.id)
+                submission.answers[question.id] == question.correctAnswer
             }
 
-            // Calcular porcentaje basado en preguntas respondidas
             val score = (correctAnswers.toDouble() / answeredQuestions.size) * 100
             val passed = score >= 80.0
 
-            // Obtener título de la sección para recomendación
             val sectionTitle = SectionTable
                 .select {
                     (SectionTable.courseId eq submission.courseId) and
@@ -662,78 +644,99 @@ class ExamService {
                 )
             )
 
-            // Determinar sección de inicio recomendada
             if (!passed && recommendedStartingSection == null) {
                 recommendedStartingSection = sectionTitle
             }
+        }
 
-            // Actualizar progreso para cada examen en este nivel
-            val examIds = levelQuestions.map { it.examId }.distinct()
-            for (examId in examIds) {
-                val examQuestions = levelQuestions.filter { it.examId == examId }
-                val answeredExamQuestions = examQuestions.filter { submission.answers.containsKey(it.id) }
+        // Verificar si completó el curso
+        val passedAll = results.all { it.passed }
+        val maxLevelInCourse = SectionTable
+            .select { SectionTable.courseId eq submission.courseId }
+            .maxByOrNull { it[SectionTable.difficultyLevel] }
+            ?.get(SectionTable.difficultyLevel) ?: 0
 
-                if (answeredExamQuestions.isNotEmpty()) {
-                    val examCorrect = answeredExamQuestions.count { question ->
-                        submission.answers[question.id] == getCorrectAnswer(question.id)
-                    }
+        isCourseCompleted = passedAll && submission.maxLevel >= maxLevelInCourse
 
-                    val examScore = (examCorrect.toDouble() / answeredExamQuestions.size) * 100
-                    val isCompleted = examScore >= 70.0
+        // Actualizar progreso de exámenes
+        val examIds = allQuestions.map { it.examId }.distinct()
+        for (examId in examIds) {
+            val examQuestions = allQuestions.filter { it.examId == examId }
+            val answeredExamQuestions = examQuestions.filter { submission.answers.containsKey(it.id) }
 
-                    // Verificar si ya existe progreso para este examen
-                    val existingProgress = UserExamProgressTable
-                        .select {
-                            (UserExamProgressTable.userId eq userId) and
-                                    (UserExamProgressTable.examId eq examId)
-                        }
-                        .firstOrNull()
-
-                    if (existingProgress == null) {
-                        // Insertar nuevo progreso
-                        UserExamProgressTable.insert {
-                            it[UserExamProgressTable.userId] = userId
-                            it[UserExamProgressTable.examId] = examId
-                            it[UserExamProgressTable.questionsAnswered] = answeredExamQuestions.size
-                            it[UserExamProgressTable.questionsCorrect] = examCorrect
-                            it[UserExamProgressTable.completed] = isCompleted
-                            it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
-                            it[UserExamProgressTable.bestScore] = examScore.toInt()
-                        }
-                    } else {
-                        // Actualizar progreso existente
-                        UserExamProgressTable.update({
-                            (UserExamProgressTable.userId eq userId) and
-                                    (UserExamProgressTable.examId eq examId)
-                        }) {
-                            it[UserExamProgressTable.questionsAnswered] = existingProgress[UserExamProgressTable.questionsAnswered] + answeredExamQuestions.size
-                            it[UserExamProgressTable.questionsCorrect] = existingProgress[UserExamProgressTable.questionsCorrect] + examCorrect
-                            it[UserExamProgressTable.completed] = isCompleted || existingProgress[UserExamProgressTable.completed]
-                            it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
-                            it[UserExamProgressTable.bestScore] = maxOf(existingProgress[UserExamProgressTable.bestScore], examScore.toInt())
-                        }
-                    }
-
-                    // Actualizar progreso del curso
-                    updateCourseProgress(userId, examId)
+            if (answeredExamQuestions.isNotEmpty()) {
+                val examCorrect = answeredExamQuestions.count { question ->
+                    submission.answers[question.id] == question.correctAnswer
                 }
+
+                val examScore = (examCorrect.toDouble() / answeredExamQuestions.size) * 100
+                val isExamCompleted = examScore >= 70.0
+
+                // Manejar inserción o actualización
+                val existingProgress = UserExamProgressTable
+                    .select {
+                        (UserExamProgressTable.userId eq userId) and
+                                (UserExamProgressTable.examId eq examId)
+                    }
+                    .firstOrNull()
+
+                if (existingProgress == null) {
+                    UserExamProgressTable.insert {
+                        it[UserExamProgressTable.userId] = userId
+                        it[UserExamProgressTable.examId] = examId
+                        it[UserExamProgressTable.questionsAnswered] = answeredExamQuestions.size
+                        it[UserExamProgressTable.questionsCorrect] = examCorrect
+                        it[UserExamProgressTable.completed] = isExamCompleted
+                        it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                        it[UserExamProgressTable.bestScore] = examScore.toInt()
+                    }
+                } else {
+                    UserExamProgressTable.update({
+                        (UserExamProgressTable.userId eq userId) and
+                                (UserExamProgressTable.examId eq examId)
+                    }) {
+                        it[UserExamProgressTable.questionsAnswered] = existingProgress[UserExamProgressTable.questionsAnswered] + answeredExamQuestions.size
+                        it[UserExamProgressTable.questionsCorrect] = existingProgress[UserExamProgressTable.questionsCorrect] + examCorrect
+                        it[UserExamProgressTable.completed] = isExamCompleted || existingProgress[UserExamProgressTable.completed]
+                        it[UserExamProgressTable.lastAttemptDate] = LocalDateTime.now()
+                        it[UserExamProgressTable.bestScore] = maxOf(existingProgress[UserExamProgressTable.bestScore], examScore.toInt())
+                    }
+                }
+
+                updateCourseProgress(userId, examId)
             }
         }
 
-        // Determinar resultado general
-        val passedAll = results.all { it.passed }
-        val overallMessage = if (passedAll) {
-            "¡Felicidades! Dominas todos los niveles evaluados."
-        } else {
-            recommendedStartingSection?.let { "Recomendamos comenzar con: $it" }
+        // Marcar curso como completado si corresponde
+        if (isCourseCompleted) {
+            UserCoursesTable.update({
+                (UserCoursesTable.userId eq userId) and
+                        (UserCoursesTable.courseId eq submission.courseId)
+            }) {
+                it[UserCoursesTable.progressPercentage] = 100
+                it[UserCoursesTable.completed] = true
+            }
+        }
+
+        // Mensaje final
+        val overallMessage = when {
+            isCourseCompleted -> "¡Felicidades! Has completado todo el curso."
+            passedAll && submission.maxLevel < maxLevelInCourse -> "¡Bien hecho! Has aprobado todos los niveles evaluados. Continúa con el nivel ${submission.maxLevel + 1}."
+            passedAll -> "¡Felicidades! Dominas todos los niveles evaluados."
+            else -> recommendedStartingSection?.let { "Recomendamos comenzar con: $it" }
                 ?: "Por favor revisa tus resultados."
         }
+
+        // Si completó el curso, no se recomienda ninguna sección
+        val finalRecommendedSection = if (isCourseCompleted) null
+        else recommendedStartingSection ?: results.lastOrNull()?.startingSection ?: "No se pudo determinar"
 
         DiagnosticFeedback(
             results = results,
             overallResult = overallMessage,
-            recommendedStartingSection = recommendedStartingSection ?:
-            results.lastOrNull()?.startingSection ?: "No se pudo determinar"
+            recommendedStartingSection = finalRecommendedSection,
+            isCourseCompleted = isCourseCompleted
         )
+
     }
 }

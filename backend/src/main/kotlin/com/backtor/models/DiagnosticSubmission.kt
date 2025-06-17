@@ -15,6 +15,7 @@ data class DiagnosticQuestion(
     val examId: Int,
     val questionText: String,
     val options: List<String>,
+    val correctAnswer: String,
     val difficultyLevel: Int
 )
 
@@ -31,5 +32,6 @@ data class DiagnosticResult(
 data class DiagnosticFeedback(
     val results: List<DiagnosticResult>,
     val overallResult: String,
-    val recommendedStartingSection: String
+    val recommendedStartingSection: String?,
+    val isCourseCompleted: Boolean
 )
