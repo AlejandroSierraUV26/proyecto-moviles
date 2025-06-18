@@ -719,4 +719,5 @@ class UserService {
             .select { Followers.followerId eq userId }
             .map { toUserDTO(it, followingAlias) }
     }
+
 }

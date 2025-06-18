@@ -27,6 +27,7 @@ object JwtService {
             .sign(algorithm)
     }
 
+
     fun verifyToken(token: String): String? {
         return try {
             val verifier = JWT.require(algorithm)

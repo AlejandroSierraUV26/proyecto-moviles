@@ -14,6 +14,7 @@ data class Question(
 
 @Serializable
 data class QuestionRequest(
+    val id: Int,
     val sectionId: Int,
     val difficultyLevel: Int,
     val questionText: String,
