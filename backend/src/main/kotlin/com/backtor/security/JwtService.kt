@@ -3,12 +3,19 @@ package com.backtor.security
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import java.util.*
+import io.github.cdimascio.dotenv.dotenv
 import com.auth0.jwt.interfaces.JWTVerifier
 
 
 object JwtService {
     private const val issuer = "backtor-api"
-    private const val secret = "rE7k4FQFyOdulJHySsuqJ1hzYPVydsT5zKGtmpoK5ywy8dNnK6RqtcQoxS4OZ1YK0pQAwykKEuUICvDgC20r+g=="
+    private val dotenv = dotenv {
+        ignoreIfMissing = true
+    }
+    private val secret: String = dotenv["JWT_SECRET"]
+        ?: System.getenv("JWT_SECRET")
+        ?: error("JWT_SECRET no definida en .env o en entorno")
+
     private val algorithm = Algorithm.HMAC256(secret)
 
     fun generateToken(email: String): String {

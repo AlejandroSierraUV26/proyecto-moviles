@@ -2,15 +2,21 @@ package com.backtor.database
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.github.cdimascio.dotenv.dotenv
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object DatabaseFactory {
+    private val dotenv = dotenv {
+        ignoreIfMissing = true // para que no truene si usas variables de entorno reales en prod
+    }
     fun init() {
         val config = HikariConfig().apply {
-            jdbcUrl = System.getenv("JDBC_DATABASE_URL") ?: "jdbc:postgresql://ep-dawn-heart-a5ovsr1c-pooler.us-east-2.aws.neon.tech/neondb?user=neondb_owner&password=npg_ZHw3QYlfa5Kg&sslmode=require"
+            jdbcUrl = dotenv["JDBC_DATABASE_URL"]
+                ?: System.getenv("JDBC_DATABASE_URL")
+                        ?: error("JDBC_DATABASE_URL no definida en .env o entorno")
             driverClassName = "org.postgresql.Driver"
             maximumPoolSize = 20 // Aumenta si tienes más carga
             isAutoCommit = false

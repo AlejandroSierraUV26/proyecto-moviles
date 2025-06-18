@@ -52,6 +52,7 @@ import org.jetbrains.exposed.sql.CustomFunction
 
 import org.jetbrains.exposed.sql.javatime.JavaLocalDateColumnType
 import io.ktor.http.content.PartData
+import io.github.cdimascio.dotenv.dotenv
 
 
 fun Expression<LocalDateTime>.date(): Expression<LocalDate> =
@@ -380,6 +381,12 @@ class UserService {
         }
     }
     fun sendEmail(email: String, subject: String, body: String) {
+        val dotenv = dotenv {
+            ignoreIfMissing = true
+        }
+        val smtpEmail = dotenv["SMTP_EMAIL"] ?: System.getenv("SMTP_EMAIL")
+        val smtpPassword = dotenv["SMTP_PASSWORD"] ?: System.getenv("SMTP_PASSWORD")
+
         val props = Properties().apply {
             put("mail.smtp.auth", "true")
             put("mail.smtp.starttls.enable", "true")
@@ -389,10 +396,7 @@ class UserService {
 
         val session = Session.getInstance(props, object : Authenticator() {
             override fun getPasswordAuthentication(): PasswordAuthentication {
-                return PasswordAuthentication(
-                    "sierra.alejandro@correounivalle.edu.co",
-                    "xzuyvzmghslcookc"
-                ) // Cambia esto por tu contraseña
+                return PasswordAuthentication(smtpEmail, smtpPassword)
             }
         })
     try {
@@ -417,7 +421,7 @@ class UserService {
             </html>
         """.trimIndent()
         val message = MimeMessage(session).apply {
-            setFrom(InternetAddress("sierra.alejandro@correounivalle.edu.co"))
+            setFrom(InternetAddress(smtpEmail))
             setRecipients(Message.RecipientType.TO, InternetAddress.parse(email))
             setSubject(subject)
             setContent(bodyHtml, "text/html; charset=utf-8")

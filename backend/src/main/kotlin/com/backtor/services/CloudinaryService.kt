@@ -4,12 +4,16 @@ import com.cloudinary.Cloudinary
 import com.cloudinary.utils.ObjectUtils
 import io.ktor.http.content.*
 import java.io.File
+import io.github.cdimascio.dotenv.dotenv
 
 class CloudinaryService {
-    private val cloudinary: Cloudinary = Cloudinary(ObjectUtils.asMap(
-        "cloud_name", "doxptfz8d",
-        "api_key", "457146275264685",
-        "api_secret", "szApxpfE-Js5GfDkuOfGPDAVyzw"
+    private val dotenv = dotenv {
+        ignoreIfMissing = true
+    }
+    private val cloudinary = Cloudinary(ObjectUtils.asMap(
+        "cloud_name", dotenv["CLOUDINARY_CLOUD_NAME"] ?: System.getenv("CLOUDINARY_CLOUD_NAME"),
+        "api_key", dotenv["CLOUDINARY_API_KEY"] ?: System.getenv("CLOUDINARY_API_KEY"),
+        "api_secret", dotenv["CLOUDINARY_API_SECRET"] ?: System.getenv("CLOUDINARY_API_SECRET")
     ))
     suspend fun uploadImage(file: PartData.FileItem): String? {
         return try {
