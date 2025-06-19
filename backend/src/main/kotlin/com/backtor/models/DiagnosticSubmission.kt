@@ -15,6 +15,7 @@ data class DiagnosticQuestion(
     val examId: Int,
     val questionText: String,
     val options: List<String>,
+    val correctAnswer: String,
     val difficultyLevel: Int
 )
 
