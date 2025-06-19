@@ -568,25 +568,9 @@ fun Route.userRoutes() {
                 }
             }
             delete("/delete") {
-                val request = try {
-                    call.receive<Map<String, String>>()
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Datos inválidos"))
-                    return@delete
-                }
-
                 val email = call.getEmailFromToken()
-                val password = request["password"]
+                val password = call.request.queryParameters["password"]
 
-
-                if (email == null) {
-                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Email es requerido"))
-                    return@delete
-                }
-                if (password.isNullOrEmpty()) {
-                    call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "Contraseña es requerida"))
-                    return@delete
-                }
                 if (email == null || password == null) {
                     call.respond(HttpStatusCode.BadRequest, ApiResponse(false, "email y contraseña son requeridos"))
                     return@delete
