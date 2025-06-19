@@ -114,6 +114,11 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.android.gms:play-services-auth:21.0.0")
 
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
+
+
+
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
