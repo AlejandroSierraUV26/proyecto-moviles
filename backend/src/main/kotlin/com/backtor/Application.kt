@@ -11,13 +11,17 @@ import io.ktor.server.request.*
 import io.ktor.server.routing.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.github.cdimascio.dotenv.dotenv
 import io.ktor.http.*
 import com.backtor.routes.userRoutes
 import com.backtor.routes.examRoutes
 import com.backtor.database.DatabaseFactory
 import com.backtor.security.JwtService
 
-fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+fun main(args: Array<String>) {
+    dotenv { ignoreIfMissing = true }
+    io.ktor.server.netty.EngineMain.main(args)
+}
 
 @Suppress("unused")
 fun Application.module() {

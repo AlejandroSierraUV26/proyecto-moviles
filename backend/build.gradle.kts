@@ -67,6 +67,8 @@ dependencies {
     implementation("com.google.oauth-client:google-oauth-client-jetty:1.34.1")
     implementation("com.google.apis:google-api-services-oauth2:v2-rev157-1.25.0")
 
+    implementation("io.github.cdimascio:dotenv-kotlin:6.4.1")
+
 
 
 }

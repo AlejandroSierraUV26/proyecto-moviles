@@ -32,5 +32,6 @@ data class DiagnosticResult(
 data class DiagnosticFeedback(
     val results: List<DiagnosticResult>,
     val overallResult: String,
-    val recommendedStartingSection: String
+    val recommendedStartingSection: String?,
+    val isCourseCompleted: Boolean
 )
