@@ -21,7 +21,7 @@ object RetrofitClient {
     // Para el emulador de Android, usamos 10.0.2.2 que apunta a localhost de la máquina host
     // Para dispositivo físico, necesitamos usar la IP real de la computadora
     //private const val BASE_URL = "http://192.168.1.60:8080/"
-    private const val BASE_URL = "http://192.168.0.26:8080/"
+    private const val BASE_URL = "http://192.168.18.8:8080/"
     //private const val BASE_URL = "http://192.168.10.18:8080/"
 
 
