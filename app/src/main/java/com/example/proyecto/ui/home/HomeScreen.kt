@@ -1,6 +1,7 @@
 package com.example.proyecto.ui.home
 
 import android.app.Application
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,14 +15,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.proyecto.utils.DoubleBackToExitHandler
-import com.example.proyecto.data.models.Course
 import com.example.proyecto.data.models.Section
 import com.example.proyecto.data.models.Exam
+import androidx.compose.foundation.lazy.LazyRow
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.compose.AsyncImage
+
+data class SimpleVideo(val id: String, val title: String)
+val sampleVideos = listOf(
+    SimpleVideo("QdJMgKJH_vg", "¿Qué pasaría si la Luna se precipitara sobre la Tierra?"),
+    SimpleVideo("lyck6MtF6Mw", "¿Por qué la Luna no cae sobre la Tierra y una manzana sí?"),
+    SimpleVideo("2iHb9lGgmac", "¿Y si la gravedad desapareciera durante 1 segundo?"),
+    SimpleVideo("Ti_utJaX-R8", "¿Qué pasaría si la Luna chocara con la Tierra? - Arco Completo"),
+    SimpleVideo("BNZhr7pacXM", "¿Qué pasaría si la Luna chocara con la Tierra? - Parte 2"),
+    SimpleVideo("7jnwTAr7zJU", "Un fragmento de la Luna se desprendió, y ahora está muy cerca de la Tierra"),
+    SimpleVideo("O8aXF1lKEag", "¿Por qué no 'cae' la luna?"),
+    SimpleVideo("lyck6MtF6Mw", "¿Por qué la Luna no cae sobre la Tierra y una manzana sí?"),
+    SimpleVideo("Ti_utJaX-R8", "¿Qué pasaría si la Luna chocara con la Tierra? - Arco Completo"),
+    SimpleVideo("BNZhr7pacXM", "¿Qué pasaría si la Luna chocara con la Tierra? - Parte 2")
+).shuffled().take(5)
 @Composable
 fun HomeScreen(navController: NavController) {
 
@@ -100,6 +122,33 @@ fun HomeScreen(navController: NavController) {
                 }
             }
         }
+        var currentVideoId by remember { mutableStateOf<String?>(null) }
+
+        Text(
+            text = "Videos educativos recomendados",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 8.dp)
+        ) {
+            items(sampleVideos) { video ->
+                SimpleVideoItem(video) { clickedId ->
+                    currentVideoId = clickedId
+                }
+            }
+        }
+
+        currentVideoId?.let {
+            YouTubeVideoDialog(videoId = it) {
+                currentVideoId = null
+            }
+        }
+
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -337,3 +386,66 @@ private fun CourseItem(
             .padding(8.dp)
     )
 }
+@Composable
+fun SimpleVideoItem(
+    video: SimpleVideo,
+    onPlayClick: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(300.dp)
+            .height(200.dp)
+            .padding(end = 12.dp)
+            .clickable { onPlayClick(video.id) },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(
+                text = video.title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            AsyncImage(
+                model = "https://img.youtube.com/vi/${video.id}/hqdefault.jpg",
+                contentDescription = "Miniatura de ${video.title}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            )
+        }
+    }
+}
+
+
+@Composable
+fun YouTubeVideoDialog(videoId: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        title = { Text("Reproduciendo video") },
+        text = {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                factory = {
+                    YouTubePlayerView(context).apply {
+                        lifecycleOwner.lifecycle.addObserver(this)
+
+                        addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
+                            override fun onReady(youTubePlayer: YouTubePlayer) {
+                                youTubePlayer.loadVideo(videoId, 0f)
+                            }
+                        })
+                    }
+                }
+            )
+        }
+    )
+}
+
+
+
