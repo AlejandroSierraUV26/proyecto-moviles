@@ -18,10 +18,12 @@ import com.backtor.routes.examRoutes
 import com.backtor.database.DatabaseFactory
 import com.backtor.security.JwtService
 
-fun main(args: Array<String>) {
+fun main() {
     dotenv { ignoreIfMissing = true }
-    io.ktor.server.netty.EngineMain.main(args)
+    val port = System.getenv("PORT")?.toInt() ?: 8080
+    embeddedServer(Netty, port = port, module = Application::module).start(wait = true)
 }
+
 
 @Suppress("unused")
 fun Application.module() {

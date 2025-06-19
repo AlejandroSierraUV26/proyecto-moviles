@@ -1,10 +1,11 @@
 package com.backtor.models
 
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.ReferenceOption
 
 object UserCoursesTable : Table("user_courses") {
     val id = integer("id").autoIncrement()
-    val userId = integer("user_id").references(UserTable.id)
+    val userId = integer("user_id").references(UserTable.id, onDelete = ReferenceOption.CASCADE)
     val courseId = integer("course_id").references(CourseTable.id)
     val progressPercentage = integer("progress_percentage").default(0)
     val completed = bool("completed").default(false)

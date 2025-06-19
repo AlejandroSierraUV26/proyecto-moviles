@@ -72,4 +72,22 @@ dependencies {
 
 
 }
+tasks.register<Jar>("buildFatJar") {
+    group = "build"
+    archiveFileName.set("link-saver_server.jar")
+    manifest {
+        attributes["Main-Class"] = "com.backtor.ApplicationKt"
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(sourceSets.main.get().output)
+
+    dependsOn(configurations.runtimeClasspath)
+    from({
+        configurations.runtimeClasspath.get()
+            .filter { it.name.endsWith("jar") }
+            .map { zipTree(it) }
+    })
+}
+
+
 
