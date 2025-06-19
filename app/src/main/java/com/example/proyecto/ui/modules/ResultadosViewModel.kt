@@ -28,6 +28,7 @@ class ResultadosViewModel : ViewModel() {
     private val _userAnswers = MutableStateFlow<List<AnswerSubmission>>(emptyList())
     val userAnswers: StateFlow<List<AnswerSubmission>> = _userAnswers.asStateFlow()
 
+
     // Clase sellada para representar el estado de carga
     sealed class LoadingState {
         object Idle : LoadingState()

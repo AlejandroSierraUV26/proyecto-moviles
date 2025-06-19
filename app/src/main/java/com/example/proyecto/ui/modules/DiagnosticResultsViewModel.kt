@@ -38,8 +38,8 @@ class DiagnosticResultsViewModel(application: Application) : AndroidViewModel(ap
     val results: StateFlow<List<DiagnosticResult>> = _results.asStateFlow()
     private val _overallResult = MutableStateFlow("")
     val overallResult: StateFlow<String> = _overallResult.asStateFlow()
-    private val _recommendedSection = MutableStateFlow("")
-    val recommendedSection: StateFlow<String> = _recommendedSection.asStateFlow()
+    private val _recommendedStartingSection = MutableStateFlow("")
+    val recommendedStartingSection : StateFlow<String> = _recommendedStartingSection.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -71,7 +71,7 @@ class DiagnosticResultsViewModel(application: Application) : AndroidViewModel(ap
             // Opcional: Proporcionar valores por defecto
             _results.value = emptyList()
             _overallResult.value = "No se pudieron cargar los resultados"
-            _recommendedSection.value = ""
+            _recommendedStartingSection.value = ""
         }
     }
 
@@ -94,7 +94,7 @@ class DiagnosticResultsViewModel(application: Application) : AndroidViewModel(ap
             // Actualizar estados
             _results.value = feedback.results
             _overallResult.value = feedback.overallResult
-            _recommendedSection.value = feedback.recommendedStartingSection
+            _recommendedStartingSection.value = feedback.recommendedStartingSection
 
             // Calcular promedio
             val avg = feedback.results
@@ -120,7 +120,7 @@ class DiagnosticResultsViewModel(application: Application) : AndroidViewModel(ap
             // Datos directos del backend
             _results.value = feedback.results
             _overallResult.value = feedback.overallResult
-            _recommendedSection.value = feedback.recommendedStartingSection
+            _recommendedStartingSection.value = feedback.recommendedStartingSection
 
             // Calcular promedio general (ya viene calculado del backend en cada nivel)
             val avg = feedback.results
@@ -146,7 +146,7 @@ class DiagnosticResultsViewModel(application: Application) : AndroidViewModel(ap
         try {
             _results.value = feedback.results
             _overallResult.value = feedback.overallResult ?: ""
-            _recommendedSection.value = feedback.recommendedStartingSection ?: ""
+            _recommendedStartingSection.value = feedback.recommendedStartingSection ?: ""
         } finally {
             _isLoading.value = false
         }

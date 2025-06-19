@@ -2,6 +2,8 @@ package com.example.proyecto.ui.modules
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.SnapPosition.Center
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.example.proyecto.data.models.DiagnosticResult
+import com.example.proyecto.navigation.AppScreens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +43,7 @@ fun DiagnosticResultsScreen(
     // Estados del ViewModel
     val results by viewModel.results.collectAsState()
     val overallResult by viewModel.overallResult.collectAsState()
-    val recommendedSection by viewModel.recommendedSection.collectAsState()
+    val recommendedStartingSection by viewModel.recommendedStartingSection.collectAsState()
     val averageScore by viewModel.averageScore.collectAsState()
     val passed by viewModel.passed.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -63,15 +67,43 @@ fun DiagnosticResultsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Resultados del Diagnóstico") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                title = { Text("Resultados del Examen") },
             )
+        },
+        bottomBar = {
+            // Botón Continuar en la parte inferior
+            Button(
+                onClick = {
+                    // Navegar al home limpiando el back stack
+                    navController.navigate(AppScreens.HomeScreen.route) {
+                        popUpTo(AppScreens.HomeScreen.route) {
+                            inclusive = true
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color(0xFF052659)
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Continuar al Inicio", fontSize = 18.sp)
+                }
+            }
         }
-    ) { padding ->
+    ){ padding ->
         if (isLoading) {
             Box(
                 modifier = Modifier
@@ -172,10 +204,11 @@ fun DiagnosticResultsScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            text = recommendedSection,
+                            text = recommendedStartingSection,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
                             ),
                             modifier = Modifier.padding(top = 4.dp)
                         )

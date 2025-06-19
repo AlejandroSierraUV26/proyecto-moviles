@@ -34,6 +34,8 @@ import com.google.android.material.color.utilities.Score.score
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -312,18 +314,26 @@ fun QuestionItem(
         question.options.forEach { option ->
             val isCorrect = option == question.correctAnswer
             val isSelected = option == selectedAnswer
+            val isIncorrectSelection = isSelected && !isCorrect && showResult
 
+            // Colores basados en el estado
             val borderColor = when {
-                isSelected -> Color(0xFF2196F3) // Azul para seleccionado
-                else -> Color.Gray.copy(alpha = 0.5f)
+                showResult && isCorrect -> Color(0xFF4CAF50) // Verde para correcta
+                isIncorrectSelection -> Color(0xFFF44336)    // Rojo para incorrecta // Azul para seleccionada
+                else -> Color.Gray.copy(alpha = 0.5f)       // Gris para no seleccionadas
             }
 
             val backgroundColor = when {
-                isSelected -> Color(0xFFE3F2FD)
+                showResult && isCorrect -> Color(0xFFE8F5E9) // Verde claro
+                isIncorrectSelection -> Color(0xFFFFEBEE)   // Rojo claro // Azul claro
                 else -> Color.Transparent
             }
 
-            val textColor = if (isSystemInDarkTheme()) Color.White else Color.Black
+            val textColor = when {
+                showResult && isCorrect -> Color(0xFF2E7D32) // Verde oscuro
+                isIncorrectSelection -> Color(0xFFC62828)   // Rojo oscuro // Azul oscuro
+                else -> if (isSystemInDarkTheme()) Color.White else Color.Black
+            }
 
             OutlinedButton(
                 onClick = {
@@ -336,7 +346,10 @@ fun QuestionItem(
                     .padding(vertical = 4.dp)
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, borderColor),
+                border = BorderStroke(
+                    width = if (showResult && (isCorrect || isIncorrectSelection)) 2.dp else 1.dp,
+                    color = borderColor
+                ),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = backgroundColor,
                     contentColor = textColor
@@ -346,7 +359,7 @@ fun QuestionItem(
                 Text(
                     text = option,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (isSelected || isCorrect) FontWeight.Bold else FontWeight.Normal
                 )
             }
         }

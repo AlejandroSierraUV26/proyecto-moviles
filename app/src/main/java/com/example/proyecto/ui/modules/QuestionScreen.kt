@@ -23,7 +23,8 @@ import com.example.proyecto.ui.modules.ResultadosViewModel
 fun QuestionScreen(
     examId: Int,
     navController: NavController,
-    quizViewModel: QuizViewModel = viewModel()
+    quizViewModel: QuizViewModel = viewModel(),
+    resultadosViewModel: ResultadosViewModel = viewModel()
 ) {
     val questions by quizViewModel.questions.collectAsState()
     val loadingState by quizViewModel.loadingState.collectAsState()
@@ -140,6 +141,11 @@ fun QuestionScreen(
                                             selectedAnswer = selectedAnswers[q.id] ?: ""
                                         )
                                     }
+
+                                    // Guardamos las respuestas en ambos ViewModels
+                                    quizViewModel.setAllAnswers(answersList)
+                                    resultadosViewModel.setUserAnswers(answersList)
+
 
                                     // Navegar a resultados
                                     quizViewModel.setAllAnswers(answersList)

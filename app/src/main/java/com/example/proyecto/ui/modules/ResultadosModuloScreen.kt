@@ -1,11 +1,14 @@
 package com.example.proyecto.ui.modules
 
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,8 +23,7 @@ import androidx.navigation.NavController
 import kotlinx.serialization.json.Json
 import com.example.proyecto.data.models.AnswerFeedback
 import com.example.proyecto.data.models.ExamFeedbackResult
-
-
+import com.example.proyecto.navigation.AppScreens
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +41,16 @@ fun ResultadosModuloScreen(
     val feedbackResult by viewModel.examFeedback.collectAsState()
     val feedbackList: List<AnswerFeedback> = feedbackResult?.feedbackList ?: emptyList()
 
+    val isExamPassed = remember(examResult) {
+        examResult?.percentage ?: 0 >= 80
+    }
+
+    // Color de fondo basado en si el examen está aprobado
+    val backgroundColor = if (isExamPassed) {
+        Color.Green.copy(alpha = 0.1f)
+    } else {
+        Color.Red.copy(alpha = 0.1f)
+    }
 
     LaunchedEffect(Unit) {
         if (!examSubmitted && userAnswers.isNotEmpty()) {
@@ -60,6 +72,28 @@ fun ResultadosModuloScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            // Botón Continuar en la parte inferior
+            if (examResult != null) {
+                Button(
+                    onClick = {
+                        // Navegar al home del curso
+                        navController.popBackStack(AppScreens.HomeScreen.route, inclusive = false)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF052659) // Verde
+                    )
+                ) {
+                    Text(
+                        if (isExamPassed) "Continuar al curso" else "Reintentar examen",
+                        fontSize = 18.sp
+                    )
+                }
+            }
         }
     ) { innerPadding ->
         Column(
@@ -84,6 +118,50 @@ fun ResultadosModuloScreen(
 
                 else -> {
                     examResult?.let { result ->
+                        // Tarjeta de resultado principal
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isExamPassed)
+                                    Color.Green.copy(alpha = 0.3f)
+                                else
+                                    Color.Red.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                if (isExamPassed) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Examen aprobado",
+                                        tint = Color.Green,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Text(
+                                        "¡Examen aprobado!",
+                                        color = Color.Green,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Examen no aprobado",
+                                        tint = Color.Red,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Text(
+                                        "Examen no aprobado",
+                                        color = Color.Red,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+                        }
 
                         // NUEVO BLOQUE DE PUNTUACIÓN Y PORCENTAJE
                         Row(
@@ -115,7 +193,7 @@ fun ResultadosModuloScreen(
                             }
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Porcentaje", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                Text("Porcentaje", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 Card(
                                     modifier = Modifier
                                         .padding(top = 4.dp)
@@ -210,6 +288,60 @@ fun ResultadosModuloScreen(
                     }
                 }
             }
+        }
+    }
+}
+@Composable
+fun QuestionResultItem(item: AnswerFeedback) {
+    val isCorrect = item.isCorrect
+    val cardColor = if (isCorrect) Color.Green.copy(alpha = 0.1f) else Color.Red.copy(alpha = 0.1f)
+    val borderColor = if (isCorrect) Color.Green else Color.Red
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = item.questionText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 18.sp,
+                    lineHeight = 22.sp
+                ),
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            item.options.forEach { option ->
+                val isSelected = option == item.selectedAnswer
+                val isRightAnswer = option == item.correctAnswer
+
+                Text(
+                    text = option,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 16.sp
+                    ),
+                    color = when {
+                        isRightAnswer -> Color.Green
+                        isSelected && !isRightAnswer -> Color.Red
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                    fontWeight = if (isSelected || isRightAnswer) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Respuesta correcta: ${item.correctAnswer}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontStyle = FontStyle.Italic
+                ),
+                color = MaterialTheme.colorScheme.secondary
+            )
         }
     }
 }
